@@ -8,6 +8,7 @@
 // See notes in extern-post-js.js
 const sqlite3InitModuleState = self.sqlite3InitModuleState || Object.create(null);
 delete self.sqlite3InitModuleState;
+sqlite3InitModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
 sqlite3InitModuleState.debugModule('self.location =',self.location);
 
 /**
@@ -30,7 +31,7 @@ sqlite3InitModuleState.debugModule('self.location =',self.location);
 */
 Module['locateFile'] = function(path, prefix) {
   let theFile;
-  const up = this.urlParams;
+  /* const up = this.urlParams;
   if(up.has(path)){
     theFile = up.get(path);
   }else if(this.sqlite3Dir){
@@ -39,11 +40,11 @@ Module['locateFile'] = function(path, prefix) {
     theFile = this.scriptDir + path;
   }else{
     theFile = prefix + path;
-  }
+  } */
+  theFile = prefix + path;
   sqlite3InitModuleState.debugModule(
     "locateFile(",arguments[0], ',', arguments[1],")",
     'sqlite3InitModuleState.scriptDir =',this.scriptDir,
-    'up.entries() =',Array.from(up.entries()),
     "result =", theFile
   );
   return theFile;

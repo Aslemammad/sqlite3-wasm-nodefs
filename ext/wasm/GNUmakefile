@@ -569,7 +569,7 @@ oz: clean
 include fiddle.make
 
 # Only add wasmfs if wasmfs.enable=1 or we're running (dist)clean
-wasmfs.enable ?= $(if $(filter %clean,$(MAKECMDGOALS)),1,0)
+wasmfs.enable ?= 1
 ifeq (1,$(wasmfs.enable))
 # wasmfs build disabled 2022-10-19 per /chat discussion.
 # OPFS-over-wasmfs was initially a stopgap measure and a convenient

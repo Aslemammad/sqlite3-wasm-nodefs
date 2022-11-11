@@ -1,3 +1,6 @@
+globalThis.self = globalThis.self || globalThis;
+self.sqlite3InitModule = sqlite3InitModule;
+
 /* extern-post-js.js must be appended to the resulting sqlite3.js
    file. It gets its name from being used as the value for the
    --extern-post-js=... Emscripten flag. Note that this code, unlike
@@ -31,23 +34,21 @@
      is called.
   */
   const initModuleState = self.sqlite3InitModuleState = Object.assign(Object.create(null),{
-    moduleScript: self?.document?.currentScript,
+    // moduleScript: self?.document?.currentScript,
     isWorker: ('undefined' !== typeof WorkerGlobalScope),
     location: self.location,
-    urlParams: new URL(self.location.href).searchParams
+    // urlParams: new URL(self.location.href).searchParams
   });
-  initModuleState.debugModule =
-    (new URL(self.location.href).searchParams).has('sqlite3.debugModule')
-    ? (...args)=>console.warn('sqlite3.debugModule:',...args)
-    : ()=>{};
+  initModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
+  // initModuleState.debugModule = () => {}
 
-  if(initModuleState.urlParams.has('sqlite3.dir')){
+  /* if(initModuleState.urlParams.has('sqlite3.dir')){
     initModuleState.sqlite3Dir = initModuleState.urlParams.get('sqlite3.dir') +'/';
   }else if(initModuleState.moduleScript){
     const li = initModuleState.moduleScript.src.split('/');
     li.pop();
     initModuleState.sqlite3Dir = li.join('/') + '/';
-  }
+  } */
 
   self.sqlite3InitModule = (...args)=>{
     //console.warn("Using replaced sqlite3InitModule()",self.location);
@@ -56,7 +57,7 @@
          (EmscriptenModule['ENVIRONMENT_IS_PTHREAD']
           || EmscriptenModule['_pthread_self']
           || 'function'===typeof threadAlert
-          || self.location.pathname.endsWith('.worker.js')
+          // || self.location.pathname.endsWith('.worker.js')
          )){
         /** Workaround for wasmfs-generated worker, which calls this
             routine from each individual thread and requires that its
@@ -77,16 +78,16 @@
   };
   self.sqlite3InitModule.ready = originalInit.ready;
 
-  if(self.sqlite3InitModuleState.moduleScript){
+  /* if(self.sqlite3InitModuleState.moduleScript){
     const sim = self.sqlite3InitModuleState;
     let src = sim.moduleScript.src.split('/');
     src.pop();
     sim.scriptDir = src.join('/') + '/';
-  }
+  } */
   initModuleState.debugModule('sqlite3InitModuleState =',initModuleState);
   if(0){
     console.warn("Replaced sqlite3InitModule()");
-    console.warn("self.location.href =",self.location.href);
+    // console.warn("self.location.href =",self.location.href);
     if('undefined' !== typeof document){
       console.warn("document.currentScript.src =",
                    document?.currentScript?.src);
@@ -98,6 +99,7 @@
     module.exports = sqlite3InitModule;
   else if (typeof exports === 'object')
     exports["sqlite3InitModule"] = sqlite3InitModule;
+  self.sqlite3InitModule = sqlite3InitModule;
   /* AMD modules get injected in a way we cannot override,
      so we can't handle those here. */
 })();

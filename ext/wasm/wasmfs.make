@@ -59,7 +59,7 @@ sqlite3-wasmfs.jsflags += -sLLD_REPORT_UNDEFINED
 sqlite3-wasmfs.jsflags += -sMEMORY64=0
 sqlite3-wasmfs.jsflags += -sINITIAL_MEMORY=128450560
 # ^^^^ 64MB is not enough for WASMFS/OPFS test runs using batch-runner.js
-sqlite3-wasmfs.fsflags := -pthread -sWASMFS -sPTHREAD_POOL_SIZE=2 -sENVIRONMENT=web,worker
+sqlite3-wasmfs.fsflags := -pthread -sWASMFS -sPTHREAD_POOL_SIZE=2 -sENVIRONMENT=node -lnodefs.js
 # -sPTHREAD_POOL_SIZE values of 2 or higher trigger that bug.
 sqlite3-wasmfs.jsflags += $(sqlite3-wasmfs.fsflags)
 #sqlite3-wasmfs.jsflags += -sALLOW_MEMORY_GROWTH

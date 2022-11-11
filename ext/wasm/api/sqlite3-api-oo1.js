@@ -102,6 +102,7 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
      It also accepts those as the first 3 arguments.
   */
   const dbCtorHelper = function ctor(...args){
+    console.log('dbCtorHelper', ...args);
     if(!ctor._name2vfs){
       /**
          Map special filenames which we handle here (instead of in C)
@@ -138,12 +139,14 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
     }
     let fnJs = ('number'===typeof fn) ? wasm.cstringToJs(fn) : fn;
     const vfsCheck = ctor._name2vfs[fnJs];
+    console.log('vfsCheck', vfsCheck,fnJs);
     if(vfsCheck){
       vfsName = vfsCheck.vfs;
       fn = fnJs = vfsCheck.filename(fnJs);
     }
     let pDb, oflags = 0;
     if( flagsStr.indexOf('c')>=0 ){
+      console.log('create access')
       oflags |= capi.SQLITE_OPEN_CREATE | capi.SQLITE_OPEN_READWRITE;
     }
     if( flagsStr.indexOf('w')>=0 ) oflags |= capi.SQLITE_OPEN_READWRITE;
@@ -167,7 +170,7 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
       if(postInitSql){
         rc = capi.sqlite3_exec(pDb, postInitSql, 0, 0, 0);
         checkSqlite3Rc(pDb, rc);
-      }      
+      }
     }catch( e ){
       if( pDb ) capi.sqlite3_close_v2(pDb);
       throw e;
