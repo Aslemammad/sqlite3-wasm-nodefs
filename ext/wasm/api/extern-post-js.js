@@ -39,8 +39,8 @@ self.sqlite3InitModule = sqlite3InitModule;
     location: self.location,
     // urlParams: new URL(self.location.href).searchParams
   });
-  initModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
-  // initModuleState.debugModule = () => {}
+  // initModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
+  initModuleState.debugModule = () => {}
 
   /* if(initModuleState.urlParams.has('sqlite3.dir')){
     initModuleState.sqlite3Dir = initModuleState.urlParams.get('sqlite3.dir') +'/';

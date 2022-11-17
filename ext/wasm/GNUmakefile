@@ -217,7 +217,8 @@ sqlite3-api.jses += $(dir.api)/sqlite3-api-glue.js
 sqlite3-api.jses += $(sqlite3-api-build-version.js)
 sqlite3-api.jses += $(dir.api)/sqlite3-api-oo1.js
 sqlite3-api.jses += $(dir.api)/sqlite3-api-worker1.js
-sqlite3-api.jses += $(dir.api)/sqlite3-api-opfs.js
+# sqlite3-api.jses += $(dir.api)/sqlite3-api-opfs.js
+sqlite3-api.jses += $(dir.api)/sqlite3-api-nodefs.js
 sqlite3-api.jses += $(dir.api)/sqlite3-api-cleanup.js
 
 # "External" API files which are part of our distribution
@@ -445,98 +446,98 @@ wasm: $(sqlite3.js)
 # End main Emscripten-based module build
 ########################################################################
 
-########################################################################
-# batch-runner.js...
-dir.sql := sql
-speedtest1 := ../../speedtest1
-speedtest1.c := ../../test/speedtest1.c
-speedtest1.sql := $(dir.sql)/speedtest1.sql
-speedtest1.cliflags := --size 25 --big-transactions
-$(speedtest1):
-	$(MAKE) -C ../.. speedtest1
-$(speedtest1.sql): $(speedtest1) $(MAKEFILE)
-	$(speedtest1) $(speedtest1.cliflags) --script $@
-batch-runner.list: $(MAKEFILE) $(speedtest1.sql) $(dir.sql)/000-mandelbrot.sql
-	bash split-speedtest1-script.sh $(dir.sql)/speedtest1.sql
-	ls -1 $(dir.sql)/*.sql | grep -v speedtest1.sql | sort > $@
-clean-batch:
-	rm -f batch-runner.list $(dir.sql)/speedtest1*.sql
-# ^^^ we don't do this along with 'clean' because we clean/rebuild on
-# a regular basis with different -Ox flags and rebuilding the batch
-# pieces each time is an unnecessary time sink.
-batch: batch-runner.list
-all: batch
-# end batch-runner.js
-########################################################################
-# speedtest1.js...
-# speedtest1-common.eflags = emcc flags used by multiple builds of speedtest1
-# speedtest1.eflags = emcc flags used by main build of speedtest1
-speedtest1-common.eflags := $(emcc_opt_full)
-speedtest1.eflags :=
-speedtest1.eflags += -sENVIRONMENT=web
-speedtest1.eflags += -sALLOW_MEMORY_GROWTH
-speedtest1.eflags += -sINITIAL_MEMORY=$(emcc.INITIAL_MEMORY.$(emcc.INITIAL_MEMORY))
-speedtest1-common.eflags += -sINVOKE_RUN=0
-speedtest1-common.eflags += --no-entry
-#speedtest1-common.eflags += -flto
-speedtest1-common.eflags += -sABORTING_MALLOC
-speedtest1-common.eflags += -sSTRICT_JS
-speedtest1-common.eflags += -sMODULARIZE
-speedtest1-common.eflags += -Wno-limited-postlink-optimizations
-EXPORTED_FUNCTIONS.speedtest1 := $(abspath $(dir.tmp)/EXPORTED_FUNCTIONS.speedtest1)
-speedtest1-common.eflags += -sEXPORTED_FUNCTIONS=@$(EXPORTED_FUNCTIONS.speedtest1)
-speedtest1-common.eflags += $(emcc.exportedRuntimeMethods)
-speedtest1-common.eflags += -sALLOW_TABLE_GROWTH
-speedtest1-common.eflags += -sDYNAMIC_EXECUTION=0
-speedtest1-common.eflags += --minify 0
-speedtest1-common.eflags += -sEXPORT_NAME=$(sqlite3.js.init-func)
-speedtest1-common.eflags += -sWASM_BIGINT=$(emcc.WASM_BIGINT)
-speedtest1-common.eflags += $(pre-post-common.flags) 
-speedtest1.exit-runtime0 := -sEXIT_RUNTIME=0
-speedtest1.exit-runtime1 := -sEXIT_RUNTIME=1
-# Re -sEXIT_RUNTIME=1 vs 0: if it's 1 and speedtest1 crashes, we get
-# this error from emscripten:
-#
-# > native function `free` called after runtime exit (use
-# NO_EXIT_RUNTIME to keep it alive after main() exits))
-#
-# If it's 0 and it crashes, we get:
-#
-# > stdio streams had content in them that was not flushed. you should
-# set EXIT_RUNTIME to 1 (see the FAQ), or make sure to emit a newline
-# when you printf etc.
-#
-# and pending output is not flushed because it didn't end with a
-# newline (by design). The lesser of the two evils seems to be
-# -sEXIT_RUNTIME=1 but we need EXIT_RUNTIME=0 for the worker-based app
-# which runs speedtest1 multiple times.
+# ########################################################################
+# # batch-runner.js...
+# dir.sql := sql
+# speedtest1 := ../../speedtest1
+# speedtest1.c := ../../test/speedtest1.c
+# speedtest1.sql := $(dir.sql)/speedtest1.sql
+# speedtest1.cliflags := --size 25 --big-transactions
+# $(speedtest1):
+# 	$(MAKE) -C ../.. speedtest1
+# $(speedtest1.sql): $(speedtest1) $(MAKEFILE)
+# 	$(speedtest1) $(speedtest1.cliflags) --script $@
+# batch-runner.list: $(MAKEFILE) $(speedtest1.sql) $(dir.sql)/000-mandelbrot.sql
+# 	bash split-speedtest1-script.sh $(dir.sql)/speedtest1.sql
+# 	ls -1 $(dir.sql)/*.sql | grep -v speedtest1.sql | sort > $@
+# clean-batch:
+# 	rm -f batch-runner.list $(dir.sql)/speedtest1*.sql
+# # ^^^ we don't do this along with 'clean' because we clean/rebuild on
+# # a regular basis with different -Ox flags and rebuilding the batch
+# # pieces each time is an unnecessary time sink.
+# batch: batch-runner.list
+# all: batch
+# # end batch-runner.js
+# ########################################################################
+# # speedtest1.js...
+# # speedtest1-common.eflags = emcc flags used by multiple builds of speedtest1
+# # speedtest1.eflags = emcc flags used by main build of speedtest1
+# speedtest1-common.eflags := $(emcc_opt_full)
+# speedtest1.eflags :=
+# speedtest1.eflags += -sENVIRONMENT=web
+# speedtest1.eflags += -sALLOW_MEMORY_GROWTH
+# speedtest1.eflags += -sINITIAL_MEMORY=$(emcc.INITIAL_MEMORY.$(emcc.INITIAL_MEMORY))
+# speedtest1-common.eflags += -sINVOKE_RUN=0
+# speedtest1-common.eflags += --no-entry
+# #speedtest1-common.eflags += -flto
+# speedtest1-common.eflags += -sABORTING_MALLOC
+# speedtest1-common.eflags += -sSTRICT_JS
+# speedtest1-common.eflags += -sMODULARIZE
+# speedtest1-common.eflags += -Wno-limited-postlink-optimizations
+# EXPORTED_FUNCTIONS.speedtest1 := $(abspath $(dir.tmp)/EXPORTED_FUNCTIONS.speedtest1)
+# speedtest1-common.eflags += -sEXPORTED_FUNCTIONS=@$(EXPORTED_FUNCTIONS.speedtest1)
+# speedtest1-common.eflags += $(emcc.exportedRuntimeMethods)
+# speedtest1-common.eflags += -sALLOW_TABLE_GROWTH
+# speedtest1-common.eflags += -sDYNAMIC_EXECUTION=0
+# speedtest1-common.eflags += --minify 0
+# speedtest1-common.eflags += -sEXPORT_NAME=$(sqlite3.js.init-func)
+# speedtest1-common.eflags += -sWASM_BIGINT=$(emcc.WASM_BIGINT)
+# speedtest1-common.eflags += $(pre-post-common.flags) 
+# speedtest1.exit-runtime0 := -sEXIT_RUNTIME=0
+# speedtest1.exit-runtime1 := -sEXIT_RUNTIME=1
+# # Re -sEXIT_RUNTIME=1 vs 0: if it's 1 and speedtest1 crashes, we get
+# # this error from emscripten:
+# #
+# # > native function `free` called after runtime exit (use
+# # NO_EXIT_RUNTIME to keep it alive after main() exits))
+# #
+# # If it's 0 and it crashes, we get:
+# #
+# # > stdio streams had content in them that was not flushed. you should
+# # set EXIT_RUNTIME to 1 (see the FAQ), or make sure to emit a newline
+# # when you printf etc.
+# #
+# # and pending output is not flushed because it didn't end with a
+# # newline (by design). The lesser of the two evils seems to be
+# # -sEXIT_RUNTIME=1 but we need EXIT_RUNTIME=0 for the worker-based app
+# # which runs speedtest1 multiple times.
 
-$(EXPORTED_FUNCTIONS.speedtest1): $(EXPORTED_FUNCTIONS.api)
-	@echo "Making $@ ..."
-	@{ echo _wasm_main; cat $(EXPORTED_FUNCTIONS.api); } > $@
-speedtest1.js := $(dir.dout)/speedtest1.js
-speedtest1.wasm := $(subst .js,.wasm,$(speedtest1.js))
-speedtest1.cflags := $(cflags.common) -DSQLITE_SPEEDTEST1_WASM
-speedtest1.cses := $(speedtest1.c) $(sqlite3-wasm.c)
-$(eval $(call call-make-pre-js,speedtest1))
-$(speedtest1.js): $(MAKEFILE) $(speedtest1.cses) \
-    $(pre-post-speedtest1.deps) \
-    $(EXPORTED_FUNCTIONS.speedtest1)
-	@echo "Building $@ ..."
-	$(emcc.bin) \
-        $(speedtest1.eflags) $(speedtest1-common.eflags) $(speedtest1.cflags) \
-        $(pre-post-speedtest1.flags) \
-        $(SQLITE_OPT) \
-        $(speedtest1.exit-runtime0) \
-        -o $@ $(speedtest1.cses) -lm
-	$(maybe-wasm-strip) $(speedtest1.wasm)
-	ls -la $@ $(speedtest1.wasm)
+# $(EXPORTED_FUNCTIONS.speedtest1): $(EXPORTED_FUNCTIONS.api)
+# 	@echo "Making $@ ..."
+# 	@{ echo _wasm_main; cat $(EXPORTED_FUNCTIONS.api); } > $@
+# speedtest1.js := $(dir.dout)/speedtest1.js
+# speedtest1.wasm := $(subst .js,.wasm,$(speedtest1.js))
+# speedtest1.cflags := $(cflags.common) -DSQLITE_SPEEDTEST1_WASM
+# speedtest1.cses := $(speedtest1.c) $(sqlite3-wasm.c)
+# $(eval $(call call-make-pre-js,speedtest1))
+# $(speedtest1.js): $(MAKEFILE) $(speedtest1.cses) \
+#     $(pre-post-speedtest1.deps) \
+#     $(EXPORTED_FUNCTIONS.speedtest1)
+# 	@echo "Building $@ ..."
+# 	$(emcc.bin) \
+#         $(speedtest1.eflags) $(speedtest1-common.eflags) $(speedtest1.cflags) \
+#         $(pre-post-speedtest1.flags) \
+#         $(SQLITE_OPT) \
+#         $(speedtest1.exit-runtime0) \
+#         -o $@ $(speedtest1.cses) -lm
+# 	$(maybe-wasm-strip) $(speedtest1.wasm)
+# 	ls -la $@ $(speedtest1.wasm)
 
-speedtest1: $(speedtest1.js)
-all: speedtest1
-CLEAN_FILES += $(speedtest1.js) $(speedtest1.wasm)
-# end speedtest1.js
-########################################################################
+# speedtest1: $(speedtest1.js)
+# all: speedtest1
+# CLEAN_FILES += $(speedtest1.js) $(speedtest1.wasm)
+# # end speedtest1.js
+# ########################################################################
 
 ########################################################################
 # Convenience rules to rebuild with various -Ox levels. Much

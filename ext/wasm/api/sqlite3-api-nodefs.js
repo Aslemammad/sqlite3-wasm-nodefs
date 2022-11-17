@@ -1,3 +1,4 @@
+
 /*
   2022-09-18
 
@@ -18,6 +19,8 @@
   after sqlite3-api-oo1.js and before sqlite3-api-cleanup.js.
 */
 'use strict';
+
+const { Worker } = require('worker_threads');
 self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
 /**
    installOpfsVfs() returns a Promise which, on success, installs an
@@ -75,28 +78,18 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
   object and that object gets a new object installed in its
   `opfs` property, containing several OPFS-specific utilities.
 */
-const installOpfsVfs = function callee(options){
-  if(!self.SharedArrayBuffer ||
-     !self.Atomics ||
-     !self.FileSystemHandle ||
-     !self.FileSystemDirectoryHandle ||
-     !self.FileSystemFileHandle ||
-     !self.FileSystemFileHandle.prototype.createSyncAccessHandle ||
-     !navigator.storage.getDirectory){
-    return Promise.reject(
-      new Error("This environment does not have OPFS support.")
-    );
-  }
+const installNodefsVfs = function callee(options){
+  console.log(options)
   if(!options || 'object'!==typeof options){
     options = Object.create(null);
   }
-  const urlParams = new URL(self.location.href).searchParams;
-  if(undefined===options.verbose){
+  // const urlParams = new URL(self.location.href).searchParams;
+  /* if(undefined===options.verbose){
     options.verbose = urlParams.has('opfs-verbose') ? 3 : 2;
-  }
-  if(undefined===options.sanityChecks){
+  } */
+  /* if(undefined===options.sanityChecks){
     options.sanityChecks = urlParams.has('opfs-sanity-check');
-  }
+  } */
   if(undefined===options.proxyUri){
     options.proxyUri = callee.defaultProxyUri;
   }
@@ -104,6 +97,19 @@ const installOpfsVfs = function callee(options){
   if('function' === typeof options.proxyUri){
     options.proxyUri = options.proxyUri();
   }
+
+  const W = new Worker(options.proxyUri, {});
+  W._originalOnError = W.onerror /* will be restored later */;
+  W.onerror = function(err){
+    /* The error object doesn't contain any useful info when the
+    failure is, e.g., that the remote script is 404. */
+    error("Error initializing Nodefs asyncer:",err);
+    promiseReject(new Error("Loading Nodefs async Worker failed for unknown reasons."));
+  };
+  W.on('exit', (e) => {
+    console.log('Worker exited with code', e);
+  })
+
   const thePromise = new Promise(function(promiseResolve, promiseReject_){
     const loggers = {
       0:console.error.bind(console),
@@ -126,12 +132,12 @@ const installOpfsVfs = function callee(options){
        Generic utilities for working with OPFS. This will get filled out
        by the Promise setup and, on success, installed as sqlite3.opfs.
     */
-    const opfsUtil = Object.create(null);
+    const nodefsUtil = Object.create(null);
     /**
        Not part of the public API. Solely for internal/development
        use.
     */
-    opfsUtil.metrics = {
+    nodefsUtil.metrics = {
       dump: function(){
         let k, n = 0, t = 0, w = 0;
         for(k in state.opIds){
@@ -147,7 +153,7 @@ const installOpfsVfs = function callee(options){
                     "\nTotal of",n,"op(s) for",t,
                     "ms (incl. "+w+" ms of waiting on the async side)");
         console.log("Serialization metrics:",metrics.s11n);
-        W.postMessage({type:'opfs-async-metrics'});
+        // W.postMessage({type:'opfs-async-metrics'});
       },
       reset: function(){
         let k;
@@ -163,35 +169,29 @@ const installOpfsVfs = function callee(options){
       }
     }/*metrics*/;      
     const promiseReject = function(err){
-      opfsVfs.dispose();
+      nodefsVfs.dispose();
       return promiseReject_(err);
     };
-    const W = new Worker(options.proxyUri, {type:'module'});
-    W._originalOnError = W.onerror /* will be restored later */;
-    W.onerror = function(err){
-      // The error object doesn't contain any useful info when the
-      // failure is, e.g., that the remote script is 404.
-      error("Error initializing OPFS asyncer:",err);
-      promiseReject(new Error("Loading OPFS async Worker failed for unknown reasons."));
-    };
+    // console.log(Worker)
+
     const pDVfs = capi.sqlite3_vfs_find(null)/*pointer to default VFS*/;
     const dVfs = pDVfs
           ? new sqlite3_vfs(pDVfs)
           : null /* dVfs will be null when sqlite3 is built with
                     SQLITE_OS_OTHER. Though we cannot currently handle
                     that case, the hope is to eventually be able to. */;
-    const opfsVfs = new sqlite3_vfs();
-    const opfsIoMethods = new sqlite3_io_methods();
-    opfsVfs.$iVersion = 2/*yes, two*/;
-    opfsVfs.$szOsFile = capi.sqlite3_file.structInfo.sizeof;
-    opfsVfs.$mxPathname = 1024/*sure, why not?*/;
-    opfsVfs.$zName = wasm.allocCString("opfs");
+    const nodefsVfs = new sqlite3_vfs();
+    const nodefsIoMethods = new sqlite3_io_methods();
+    nodefsVfs.$iVersion = 2/*yes, two*/;
+    nodefsVfs.$szOsFile = capi.sqlite3_file.structInfo.sizeof;
+    nodefsVfs.$mxPathname = 1024/*sure, why not?*/;
+    nodefsVfs.$zName = wasm.allocCString("nodefs");
     // All C-side memory of opfsVfs is zeroed out, but just to be explicit:
-    opfsVfs.$xDlOpen = opfsVfs.$xDlError = opfsVfs.$xDlSym = opfsVfs.$xDlClose = null;
-    opfsVfs.ondispose = [
-      '$zName', opfsVfs.$zName,
+    nodefsVfs.$xDlOpen = nodefsVfs.$xDlError = nodefsVfs.$xDlSym = nodefsVfs.$xDlClose = null;
+    nodefsVfs.ondispose = [
+      '$zName', nodefsVfs.$zName,
       'cleanup default VFS wrapper', ()=>(dVfs ? dVfs.dispose() : null),
-      'cleanup opfsIoMethods', ()=>opfsIoMethods.dispose()
+      'cleanup opfsIoMethods', ()=>nodefsIoMethods.dispose()
     ];
     /**
        Pedantic sidebar about opfsVfs.ondispose: the entries in that array
@@ -259,7 +259,7 @@ const installOpfsVfs = function callee(options){
        values of any of the proxied APIs. Filenames are the largest
        part but are limited to opfsVfs.$mxPathname bytes.
     */
-    state.sabS11nSize = opfsVfs.$mxPathname * 2;
+    state.sabS11nSize = nodefsVfs.$mxPathname * 2;
     /**
        The SAB used for all data I/O between the synchronous and
        async halves (file i/o and arg/result s11n).
@@ -308,7 +308,7 @@ const installOpfsVfs = function callee(options){
       state.sabOP = new SharedArrayBuffer(
         i * 4/* ==sizeof int32, noting that Atomics.wait() and friends
                 can only function on Int32Array views of an SAB. */);
-      opfsUtil.metrics.reset();
+      nodefsUtil.metrics.reset();
     }
     /**
        SQLITE_xxx constants to export to the async worker
@@ -361,7 +361,9 @@ const installOpfsVfs = function callee(options){
       Atomics.notify(state.sabOPView, state.opIds.whichOp)
       /* async thread will take over here */;
       const t = performance.now();
+      console.log('opRun wait before', op, args)
       Atomics.wait(state.sabOPView, state.opIds.rc, -1)
+      console.log('opRun wait after', op, args)
       /* When this wait() call returns, the async half will have
          completed the operation and reported its results. */;
       const rc = Atomics.load(state.sabOPView, state.opIds.rc);
@@ -376,14 +378,14 @@ const installOpfsVfs = function callee(options){
     /**
        Not part of the public API. Only for test/development use.
     */
-    opfsUtil.debug = {
+    nodefsUtil.debug = {
       asyncShutdown: ()=>{
         warn("Shutting down OPFS async listener. The OPFS VFS will no longer work.");
         opRun('opfs-async-shutdown');
       },
       asyncRestart: ()=>{
         warn("Attempting to restart OPFS VFS async listener. Might work, might not.");
-        W.postMessage({type: 'opfs-async-restart'});
+        // W.postMessage({type: 'opfs-async-restart'});
       }
     };
 
@@ -837,6 +839,7 @@ const installOpfsVfs = function callee(options){
         }else if('number'===typeof zName){
           zName = wasm.cstringToJs(zName);
         }
+        console.log(pVfs, zName, pFile, flags, pOutFlags)
         const fh = Object.create(null);
         fh.fid = pFile;
         fh.filename = zName;
@@ -852,7 +855,7 @@ const installOpfsVfs = function callee(options){
           __openFiles[pFile] = fh;
           fh.sabView = state.sabFileBufView;
           fh.sq3File = new sqlite3_file(pFile);
-          fh.sq3File.$pMethods = opfsIoMethods.pointer;
+          fh.sq3File.$pMethods = nodefsIoMethods.pointer;
           fh.lockType = capi.SQLITE_LOCK_NONE;
         }
         mTimeEnd();
@@ -861,10 +864,10 @@ const installOpfsVfs = function callee(options){
     }/*vfsSyncWrappers*/;
 
     if(dVfs){
-      opfsVfs.$xRandomness = dVfs.$xRandomness;
-      opfsVfs.$xSleep = dVfs.$xSleep;
+      nodefsVfs.$xRandomness = dVfs.$xRandomness;
+      nodefsVfs.$xSleep = dVfs.$xSleep;
     }
-    if(!opfsVfs.$xRandomness){
+    if(!nodefsVfs.$xRandomness){
       /* If the default VFS has no xRandomness(), add a basic JS impl... */
       vfsSyncWrappers.xRandomness = function(pVfs, nOut, pOut){
         const heap = wasm.heap8u();
@@ -873,7 +876,7 @@ const installOpfsVfs = function callee(options){
         return i;
       };
     }
-    if(!opfsVfs.$xSleep){
+    if(!nodefsVfs.$xSleep){
       /* If we can inherit an xSleep() impl from the default VFS then
          assume it's sane and use it, otherwise install a JS-based
          one. */
@@ -885,10 +888,10 @@ const installOpfsVfs = function callee(options){
 
     /* Install the vfs/io_methods into their C-level shared instances... */
     for(let k of Object.keys(ioSyncWrappers)){
-      installMethod(opfsIoMethods, k, ioSyncWrappers[k]);
+      installMethod(nodefsIoMethods, k, ioSyncWrappers[k]);
     }
     for(let k of Object.keys(vfsSyncWrappers)){
-      installMethod(opfsVfs, k, vfsSyncWrappers[k]);
+      installMethod(nodefsVfs, k, vfsSyncWrappers[k]);
     }
 
     /**
@@ -897,7 +900,7 @@ const installOpfsVfs = function callee(options){
        is true, the result is returned as an array of path elements,
        else an absolute path string is returned.
     */
-    opfsUtil.getResolvedPath = function(filename,splitIt){
+    nodefsUtil.getResolvedPath = function(filename,splitIt){
       const p = new URL(filename, "file://irrelevant").pathname;
       return splitIt ? p.split('/').filter((v)=>!!v) : p;
     };
@@ -909,10 +912,10 @@ const installOpfsVfs = function callee(options){
        created along the way. Throws if any creation or resolution
        fails.
     */
-    opfsUtil.getDirForFilename = async function f(absFilename, createDirs = false){
-      const path = opfsUtil.getResolvedPath(absFilename, true);
+    nodefsUtil.getDirForFilename = async function f(absFilename, createDirs = false){
+      const path = nodefsUtil.getResolvedPath(absFilename, true);
       const filename = path.pop();
-      let dh = opfsUtil.rootDirectory;
+      let dh = nodefsUtil.rootDirectory;
       for(const dirName of path){
         if(dirName){
           dh = await dh.getDirectoryHandle(dirName, {create: !!createDirs});
@@ -926,9 +929,9 @@ const installOpfsVfs = function callee(options){
        the OPFS filesystem. Returns true if it succeeds or the
        directory already exists, else false.
     */
-    opfsUtil.mkdir = async function(absDirName){
+    nodefsUtil.mkdir = async function(absDirName){
       try {
-        await opfsUtil.getDirForFilename(absDirName+"/filepart", true);
+        await nodefsUtil.getDirForFilename(absDirName+"/filepart", true);
         return true;
       }catch(e){
         //console.warn("mkdir(",absDirName,") failed:",e);
@@ -939,9 +942,9 @@ const installOpfsVfs = function callee(options){
        Checks whether the given OPFS filesystem entry exists,
        returning true if it does, false if it doesn't.
     */
-    opfsUtil.entryExists = async function(fsEntryName){
+    nodefsUtil.entryExists = async function(fsEntryName){
       try {
-        const [dh, fn] = await opfsUtil.getDirForFilename(fsEntryName);
+        const [dh, fn] = await nodefsUtil.getDirForFilename(fsEntryName);
         await dh.getFileHandle(fn);
         return true;
       }catch(e){
@@ -954,7 +957,7 @@ const installOpfsVfs = function callee(options){
        temporary file name. Its argument is the length of the string,
        defaulting to 16.
     */
-    opfsUtil.randomFilename = randomFilename;
+    nodefsUtil.randomFilename = randomFilename;
 
     /**
        Re-registers the OPFS VFS. This is intended only for odd use
@@ -971,9 +974,9 @@ const installOpfsVfs = function callee(options){
        hook in to any C-side calls to sqlite3_initialize(), so we
        cannot add an after-initialize callback mechanism.
     */
-    opfsUtil.registerVfs = (asDefault=false)=>{
+    nodefsUtil.registerVfs = (asDefault=false)=>{
       return wasm.exports.sqlite3_vfs_register(
-        opfsVfs.pointer, asDefault ? 1 : 0
+        nodefsVfs.pointer, asDefault ? 1 : 0
       );
     };
 
@@ -1006,7 +1009,7 @@ const installOpfsVfs = function callee(options){
        e.g. file sizes, because getting such info is not only
        expensive but is subject to locking-related errors.
     */
-    opfsUtil.treeList = async function(){
+    nodefsUtil.treeList = async function(){
       const doDir = async function callee(dirHandle,tgt){
         tgt.name = dirHandle.name;
         tgt.dirs = [];
@@ -1022,7 +1025,7 @@ const installOpfsVfs = function callee(options){
         }
       };
       const root = Object.create(null);
-      await doDir(opfsUtil.rootDirectory, root);
+      await doDir(nodefsUtil.rootDirectory, root);
       return root;
     };
 
@@ -1033,8 +1036,8 @@ const installOpfsVfs = function callee(options){
        locked), but the precise conditions under which it will throw
        are not documented (so we cannot tell you what they are).
     */
-    opfsUtil.rmfr = async function(){
-      const dir = opfsUtil.rootDirectory, opt = {recurse: true};
+    nodefsUtil.rmfr = async function(){
+      const dir = nodefsUtil.rootDirectory, opt = {recurse: true};
       for await (const handle of dir.values()){
         dir.removeEntry(handle.name, opt);
       }
@@ -1055,11 +1058,11 @@ const installOpfsVfs = function callee(options){
        If the final argument is truthy then this function will
        propagate any exception on error, rather than returning false.
     */
-    opfsUtil.unlink = async function(fsEntryName, recursive = false,
+    nodefsUtil.unlink = async function(fsEntryName, recursive = false,
                                           throwOnError = false){
       try {
         const [hDir, filenamePart] =
-              await opfsUtil.getDirForFilename(fsEntryName, false);
+              await nodefsUtil.getDirForFilename(fsEntryName, false);
         await hDir.removeEntry(filenamePart, {recursive});
         return true;
       }catch(e){
@@ -1111,10 +1114,10 @@ const installOpfsVfs = function callee(options){
        an incremental file browsing widget would benefit more from
        breadth-first.
     */
-    opfsUtil.traverse = async function(opt){
+    nodefsUtil.traverse = async function(opt){
       const defaultOpt = {
         recursive: true,
-        directory: opfsUtil.rootDirectory
+        directory: nodefsUtil.rootDirectory
       };
       if('function'===typeof opt){
         opt = {callback:opt};
@@ -1134,15 +1137,18 @@ const installOpfsVfs = function callee(options){
     //TODO to support fiddle and worker1 db upload:
     //opfsUtil.createFile = function(absName, content=undefined){...}
 
+    console.log(sqlite3.oo1)
     if(sqlite3.oo1){
-      opfsUtil.OpfsDb = function(...args){
+      nodefsUtil.NodefsDb = function(...args){
         const opt = sqlite3.oo1.DB.dbCtorHelper.normalizeArgs(...args);
-        opt.vfs = opfsVfs.$zName;
+        opt.vfs = nodefsVfs.$zName;
+        console.log('before nodefsUtil.NodefsDb',opt);
         sqlite3.oo1.DB.dbCtorHelper.call(this, opt);
+        console.log('after nodefsUtil.NodefsDb',opt);
       };
-      opfsUtil.OpfsDb.prototype = Object.create(sqlite3.oo1.DB.prototype);
+      nodefsUtil.NodefsDb.prototype = Object.create(sqlite3.oo1.DB.prototype);
       sqlite3.oo1.DB.dbCtorHelper.setVfsPostOpenSql(
-        opfsVfs.pointer,
+        nodefsVfs.pointer,
         [
           /* Truncate journal mode is faster than delete or wal for
              this vfs, per speedtest1. */
@@ -1183,10 +1189,10 @@ const installOpfsVfs = function callee(options){
         rc = state.s11n.deserialize();
         log("deserialize() says:",rc);
         if("This is ä string."!==rc[0]) toss("String d13n error.");
-        vfsSyncWrappers.xAccess(opfsVfs.pointer, zDbFile, 0, pOut);
+        vfsSyncWrappers.xAccess(nodefsVfs.pointer, zDbFile, 0, pOut);
         rc = wasm.getMemValue(pOut,'i32');
         log("xAccess(",dbFile,") exists ?=",rc);
-        rc = vfsSyncWrappers.xOpen(opfsVfs.pointer, zDbFile,
+        rc = vfsSyncWrappers.xOpen(nodefsVfs.pointer, zDbFile,
                                    fid, openFlags, pOut);
         log("open rc =",rc,"state.sabOPView[xOpen] =",
             state.sabOPView[state.opIds.xOpen]);
@@ -1194,7 +1200,7 @@ const installOpfsVfs = function callee(options){
           error("open failed with code",rc);
           return;
         }
-        vfsSyncWrappers.xAccess(opfsVfs.pointer, zDbFile, 0, pOut);
+        vfsSyncWrappers.xAccess(nodefsVfs.pointer, zDbFile, 0, pOut);
         rc = wasm.getMemValue(pOut,'i32');
         if(!rc) toss("xAccess() failed to detect file.");
         rc = ioSyncWrappers.xSync(sq3File.pointer, 0);
@@ -1215,14 +1221,14 @@ const installOpfsVfs = function callee(options){
         if("sanity"!==jRead) toss("Unexpected xRead() value.");
         if(vfsSyncWrappers.xSleep){
           log("xSleep()ing before close()ing...");
-          vfsSyncWrappers.xSleep(opfsVfs.pointer,2000);
+          vfsSyncWrappers.xSleep(nodefsVfs.pointer,2000);
           log("waking up from xSleep()");
         }
         rc = ioSyncWrappers.xClose(fid);
         log("xClose rc =",rc,"sabOPView =",state.sabOPView);
         log("Deleting file:",dbFile);
-        vfsSyncWrappers.xDelete(opfsVfs.pointer, zDbFile, 0x1234);
-        vfsSyncWrappers.xAccess(opfsVfs.pointer, zDbFile, 0, pOut);
+        vfsSyncWrappers.xDelete(nodefsVfs.pointer, zDbFile, 0x1234);
+        vfsSyncWrappers.xAccess(nodefsVfs.pointer, zDbFile, 0, pOut);
         rc = wasm.getMemValue(pOut,'i32');
         if(rc) toss("Expecting 0 from xAccess(",dbFile,") after xDelete().");
         warn("End of OPFS sanity checks.");
@@ -1232,9 +1238,19 @@ const installOpfsVfs = function callee(options){
       }
     }/*sanityCheck()*/;
 
-    W.onmessage = function({data}){
-      //log("Worker.onmessage:",data);
+
+    /* capi.sqlite3_vfs_register.addReference(nodefsVfs, nodefsIoMethods);
+    state.sabOPView = new Int32Array(state.sabOP);
+    state.sabFileBufView = new Uint8Array(state.sabIO, 0, state.fileBufferSize);
+    state.sabS11nView = new Uint8Array(state.sabIO, state.sabS11nOffset, state.sabS11nSize);
+
+    initS11n();
+    sqlite3.nodefs = nodefsUtil; */
+    W.addListener('message', function(data){
       switch(data.type){
+          case 'log': 
+            console.log(data.msg);
+            break;
           case 'opfs-async-loaded':
             /*Arrives as soon as the asyc proxy finishes loading.
               Pass our config and shared state on to the async worker.*/
@@ -1245,30 +1261,28 @@ const installOpfsVfs = function callee(options){
               and has finished initializing, so the real work can
               begin...*/
             try {
-              const rc = capi.sqlite3_vfs_register(opfsVfs.pointer, 0);
+              const rc = capi.sqlite3_vfs_register(nodefsVfs.pointer, 0);
               if(rc){
                 toss("sqlite3_vfs_register(OPFS) failed with rc",rc);
               }
-              if(opfsVfs.pointer !== capi.sqlite3_vfs_find("opfs")){
+              if(nodefsVfs.pointer !== capi.sqlite3_vfs_find("nodefs")){
                 toss("BUG: sqlite3_vfs_find() failed for just-installed OPFS VFS");
               }
-              capi.sqlite3_vfs_register.addReference(opfsVfs, opfsIoMethods);
+              capi.sqlite3_vfs_register.addReference(nodefsVfs, nodefsIoMethods);
               state.sabOPView = new Int32Array(state.sabOP);
               state.sabFileBufView = new Uint8Array(state.sabIO, 0, state.fileBufferSize);
               state.sabS11nView = new Uint8Array(state.sabIO, state.sabS11nOffset, state.sabS11nSize);
               initS11n();
-              if(options.sanityChecks){
-                warn("Running sanity checks because of opfs-sanity-check URL arg...");
-                sanityCheck();
-              }
-              navigator.storage.getDirectory().then((d)=>{
-                W.onerror = W._originalOnError;
-                delete W._originalOnError;
-                sqlite3.opfs = opfsUtil;
-                opfsUtil.rootDirectory = d;
-                log("End of OPFS sqlite3_vfs setup.", opfsVfs);
+              W.onerror = W._originalOnError;
+              delete W._originalOnError;
+              sqlite3.nodefs = nodefsUtil;
+              nodefsUtil.rootDirectory = process.cwd();
+              console.log("End of OPFS sqlite3_vfs setup.", nodefsVfs);
+              /* queueMicrotask(() => {
+                console.log('stop')
                 promiseResolve(sqlite3);
-              });
+              }) */
+              return Promise.resolve().then(promiseResolve);
             }catch(e){
               error(e);
               promiseReject(e);
@@ -1280,26 +1294,18 @@ const installOpfsVfs = function callee(options){
             error("Unexpected message from the async worker:",data);
             break;
       }/*switch(data.type)*/
-    }/*W.onmessage()*/;
+    })
+
   })/*thePromise*/;
   return thePromise;
 }/*installOpfsVfs()*/;
-installOpfsVfs.defaultProxyUri =
-  "sqlite3-opfs-async-proxy.js";
+console.log(process.cwd())
+installNodefsVfs.defaultProxyUri =
+  "./api/sqlite3-nodefs-async-proxy.js";
 self.sqlite3ApiBootstrap.initializersAsync.push(async (sqlite3)=>{
-    console.log('here')
-  if(sqlite3.scriptInfo && !sqlite3.scriptInfo.isWorker){
-    return;
-  }
   try{
-    let proxyJs = installOpfsVfs.defaultProxyUri;
-    if(sqlite3.scriptInfo.sqlite3Dir){
-      installOpfsVfs.defaultProxyUri =
-        sqlite3.scriptInfo.sqlite3Dir + proxyJs;
-      //console.warn("installOpfsVfs.defaultProxyUri =",installOpfsVfs.defaultProxyUri);
-    }
-    return installOpfsVfs().catch((e)=>{
-      console.warn("Ignoring inability to install OPFS sqlite3_vfs:",e.message);
+    return installNodefsVfs().catch((e)=>{
+      console.warn("Ignoring inability to install OPFS sqlite3_vfs:",e);
     });
   }catch(e){
     console.error("installOpfsVfs() exception:",e);
