@@ -504,16 +504,17 @@ const vfsAsyncImpls = {
     try{
       affirmLocked('xRead',fh);
       wTimeStart('xRead');
-      nRead = fs.readSync(fh.fileHandle, fh.sabView.subarray(0, n), offset64);
+      nRead = fs.readSync(fh.fileHandle, fh.sabView, offset64);
       /* nRead = (await fh.fileHandle.read(
         fh.sabView.subarray(0, n),
         Number(offset64)
       )).bytesRead; */
-      wLog('xRead',nRead,n, offset64);
+      wLog('xRead',{ nRead,n, offset64, filenameAbs: fh.filenameAbs, sabView: fh.sabView, stat: fs.fstatSync(fh.fileHandle) });
       wTimeEnd();
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
         rc = state.sq3Codes.SQLITE_IOERR_SHORT_READ;
+        wLog(rc)
       }
     }catch(e){
       if(undefined===nRead) wTimeEnd();
@@ -593,12 +594,23 @@ const vfsAsyncImpls = {
       // affirmNotRO('xWrite', fh);
       const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView, Number(offset64))
 
+      var enc = new TextDecoder("utf-8");
+      // console.log('here', enc.decode(fh.sabView))
+
       rc = (
         // n === (await fh.fileHandle.write(fh.sabView.subarray(0, n), Number(offset64))).bytesWritten
-        n === bytesWritten
+        n <= bytesWritten
       ) ? 0 : state.sq3Codes.SQLITE_IOERR_WRITE;
-      console.log(fs.fstatSync(fh.fileHandle), bytesWritten, rc)
-      wLog('err',fs.fstatSync(fh.fileHandle), fh.filenameAbs,  rc, n, bytesWritten, offset64, fh.sabView.subarray(0, n))
+      // console.log(fs.fstatSync(fh.fileHandle), bytesWritten, rc)
+      wLog('err', {
+        filenameAbs: fh.filenameAbs,
+        rc,
+        n,
+        bytesWritten,
+        offset64,
+        // decode: enc.decode(fh.sabView)
+      })
+      wLog(enc.decode(fh.sabView.subarray(0, n)))
     }catch(e){
       wLog(e)
       error("xWrite():",e,fh);
