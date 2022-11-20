@@ -21,6 +21,8 @@
 'use strict';
 
 const { Worker } = require('worker_threads');
+const fs = require('fs')
+const path = require('path')
 self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
 /**
    installOpfsVfs() returns a Promise which, on success, installs an
@@ -361,12 +363,13 @@ const installNodefsVfs = function callee(options){
       Atomics.notify(state.sabOPView, state.opIds.whichOp)
       /* async thread will take over here */;
       const t = performance.now();
-      console.log('opRun wait before', op, args)
+      console.trace('opRun wait before', op, args)
       Atomics.wait(state.sabOPView, state.opIds.rc, -1)
-      console.log('opRun wait after', op, args)
+      console.log('opRun wait after', op, args, state.opIds.rc)
       /* When this wait() call returns, the async half will have
          completed the operation and reported its results. */;
       const rc = Atomics.load(state.sabOPView, state.opIds.rc);
+      console.log('rc', rc)
       metrics[op].wait += performance.now() - t;
       if(rc && state.asyncS11nExceptions){
         const err = state.s11n.deserialize();
@@ -716,6 +719,7 @@ const installNodefsVfs = function callee(options){
         mTimeStart('xLock');
         const f = __openFiles[pFile];
         let rc = 0;
+        console.log(capi.SQLITE_LOCK_NONE, f.lockType, lockType);
         if( capi.SQLITE_LOCK_NONE === f.lockType ) {
           rc = opRun('xLock', pFile, lockType);
           if( 0===rc ) f.lockType = lockType;
@@ -839,7 +843,6 @@ const installNodefsVfs = function callee(options){
         }else if('number'===typeof zName){
           zName = wasm.cstringToJs(zName);
         }
-        console.log(pVfs, zName, pFile, flags, pOutFlags)
         const fh = Object.create(null);
         fh.fid = pFile;
         fh.filename = zName;
@@ -944,8 +947,7 @@ const installNodefsVfs = function callee(options){
     */
     nodefsUtil.entryExists = async function(fsEntryName){
       try {
-        const [dh, fn] = await nodefsUtil.getDirForFilename(fsEntryName);
-        await dh.getFileHandle(fn);
+        fs.statSync(path.resolve(process.cwd(), fsEntryName));
         return true;
       }catch(e){
         return false;

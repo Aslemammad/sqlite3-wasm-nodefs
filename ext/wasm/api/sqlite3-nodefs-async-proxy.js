@@ -329,8 +329,10 @@ const vfsAsyncImpls = {
     wTimeStart('xAccess');
     try{
       /* const [dh, fn] = await getDirForFilename(filename);
-      await dh.getFileHandle(fn); */
+      const fd = fs.openSync(fn, O_CREAT);
+      fs.closeSync(fd); */
     }catch(e){
+      wLog('xAccess: not accessible:',e);
       state.s11n.storeException(2,e);
       rc = state.sq3Codes.SQLITE_IOERR;
     }finally{
@@ -390,16 +392,8 @@ const vfsAsyncImpls = {
     let rc = 0;
     wTimeStart('xDelete');
     try {
-      while(filename){
-        const [hDir, filenamePart] = await getDirForFilename(filename, false);
-        if(!filenamePart) break;
-        await hDir.removeEntry(filenamePart, {recursive});
-        if(0x1234 !== syncDir) break;
-        recursive = false;
-        filename = getResolvedPath(filename, true);
-        filename.pop();
-        filename = filename.join('/');
-      }
+      const [, resolvedPath] = await getDirForFilename(filename, false);
+      fs.rmSync(resolvedPath);
     }catch(e){
       state.s11n.storeException(2,e);
       rc = state.sq3Codes.SQLITE_IOERR_DELETE;
@@ -436,6 +430,8 @@ const vfsAsyncImpls = {
     wTimeStart('xLock');
     // try { await getSyncHandle(fh) }
     try {
+      /* const fd = fs.openSync(fh.filenameAbs, O_CREAT);
+      fs.closeSync(fd); */
       /* const fileHandle = fs.openSync(fh.filenameAbs, O_RDWR | O_CREAT);
       fileHandle.
       fh.fileHandle = fileHandle; */
@@ -486,7 +482,8 @@ const vfsAsyncImpls = {
         sabView: state.sabFileBufView,
         readOnly: create
           ? false : (state.sq3Codes.SQLITE_OPEN_READONLY & flags),
-        deleteOnClose: deleteOnClose
+        deleteOnClose: deleteOnClose,
+        flags,
       });
       storeAndNotify(opName, 0);
     }catch(e){
@@ -501,7 +498,7 @@ const vfsAsyncImpls = {
     mTimeStart('xRead');
     let rc = 0, nRead;
     const fh = __openFiles[fid];
-    wLog('xRead',fid,n,offset64);
+    // wLog('xRead',fid,n,offset64, fh.filenameAbs);
     // (await (await (await fs.open())).close())
 
     try{
@@ -512,7 +509,7 @@ const vfsAsyncImpls = {
         fh.sabView.subarray(0, n),
         Number(offset64)
       )).bytesRead; */
-      wLog('xRead',nRead,n);
+      wLog('xRead',nRead,n, offset64);
       wTimeEnd();
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
@@ -573,7 +570,8 @@ const vfsAsyncImpls = {
       wTimeStart('xUnlock');
       // try { await closeSyncHandle(fh) }
       try {
-        // await fh.fileHandle.close();
+        /* await this.xDelete(fh.filenameAbs)
+        fs.closeSync(fh.fileHandle); */
       }
       catch(e){
         state.s11n.storeException(1,e);
@@ -593,17 +591,20 @@ const vfsAsyncImpls = {
     try{
       affirmLocked('xWrite',fh);
       // affirmNotRO('xWrite', fh);
-      const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView.subarray(0, n), Number(offset64))
+      const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView, Number(offset64))
+
       rc = (
         // n === (await fh.fileHandle.write(fh.sabView.subarray(0, n), Number(offset64))).bytesWritten
         n === bytesWritten
       ) ? 0 : state.sq3Codes.SQLITE_IOERR_WRITE;
-
+      console.log(fs.fstatSync(fh.fileHandle), bytesWritten, rc)
+      wLog('err',fs.fstatSync(fh.fileHandle), fh.filenameAbs,  rc, n, bytesWritten, offset64, fh.sabView.subarray(0, n))
     }catch(e){
-      console.log('err', e)
+      wLog(e)
       error("xWrite():",e,fh);
       state.s11n.storeException(1,e);
       rc = state.sq3Codes.SQLITE_IOERR_WRITE;
+
     }
     wTimeEnd();
     storeAndNotify('xWrite',rc);
@@ -747,7 +748,6 @@ const waitLoop = async function f(){
       state.s11n.serialize(/* clear s11n to keep the caller from
                               confusing this with an exception string
                               written by the upcoming operation */);
-      //warn("waitLoop() whichOp =",opId, hnd, args);
       if(hnd.f) await hnd.f(...args);
       else error("Missing callback for opId",opId);
     }catch(e){

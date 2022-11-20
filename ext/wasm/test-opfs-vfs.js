@@ -19,14 +19,15 @@ const tryOpfsVfs = async function(sqlite3){
   const log = (...args)=>console.log(logPrefix,...args);
   const warn =  (...args)=>console.warn(logPrefix,...args);
   const error =  (...args)=>console.error(logPrefix,...args);
+  const opfs = sqlite3.opfs;
   log("tryOpfsVfs()");
-  console.log("nodefs",sqlite3.nodefs);
-  const nodefs = sqlite3.nodefs;
-  nodefs.registerVfs()
-
+  if(!sqlite3.opfs){
+    const e = toss("OPFS is not available.");
+    error(e);
+    throw e;
+  }
   const capi = sqlite3.capi;
-  const pVfs = capi.sqlite3_vfs_find("nodefs")
-  console.log('pVfs', pVfs);
+  const pVfs = capi.sqlite3_vfs_find("opfs") || toss("Missing 'opfs' VFS.");
   const oVfs = capi.sqlite3_vfs.instanceForPointer(pVfs) || toss("Unexpected instanceForPointer() result.");;
   log("OPFS VFS:",pVfs, oVfs);
 
@@ -34,14 +35,14 @@ const tryOpfsVfs = async function(sqlite3){
     return new Promise((resolve)=>setTimeout(resolve, ms));
   };
 
-  // const urlArgs = new URL(self.location.href).searchParams;
+  const urlArgs = new URL(self.location.href).searchParams;
   const dbFile = "my-persistent.db";
-  // if(urlArgs.has('delete')) sqlite3.opfs.unlink(dbFile);
+  if(urlArgs.has('delete')) sqlite3.opfs.unlink(dbFile);
 
-  const db = new nodefs.OpfsDb(dbFile,'ct');
+  const db = new opfs.OpfsDb(dbFile,'ct');
   log("db file:",db.filename);
   try{
-    if(nodefs.entryExists(dbFile)){
+    if(opfs.entryExists(dbFile)){
       let n = db.selectValue("select count(*) from sqlite_schema");
       log("Persistent data found. sqlite_schema entry count =",n);
     }
@@ -59,16 +60,16 @@ const tryOpfsVfs = async function(sqlite3){
     log("count(*) from t =",db.selectValue("select count(*) from t"));
 
     // Some sanity checks of the opfs utility functions...
-    const testDir = '/sqlite3-opfs-'+nodefs.randomFilename(12);
+    const testDir = '/sqlite3-opfs-'+opfs.randomFilename(12);
     const aDir = testDir+'/test/dir';
-    await nodefs.mkdir(aDir) || toss("mkdir failed");
-    await nodefs.mkdir(aDir) || toss("mkdir must pass if the dir exists");
-    await nodefs.unlink(testDir+'/test') && toss("delete 1 should have failed (dir not empty)");
+    await opfs.mkdir(aDir) || toss("mkdir failed");
+    await opfs.mkdir(aDir) || toss("mkdir must pass if the dir exists");
+    await opfs.unlink(testDir+'/test') && toss("delete 1 should have failed (dir not empty)");
     //await opfs.entryExists(testDir)
-    await nodefs.unlink(testDir+'/test/dir') || toss("delete 2 failed");
-    await nodefs.unlink(testDir+'/test/dir') && toss("delete 2b should have failed (dir already deleted)");
-    await nodefs.unlink(testDir, true) || toss("delete 3 failed");
-    await nodefs.entryExists(testDir) && toss("entryExists(",testDir,") should have failed");
+    await opfs.unlink(testDir+'/test/dir') || toss("delete 2 failed");
+    await opfs.unlink(testDir+'/test/dir') && toss("delete 2b should have failed (dir already deleted)");
+    await opfs.unlink(testDir, true) || toss("delete 3 failed");
+    await opfs.entryExists(testDir) && toss("entryExists(",testDir,") should have failed");
   }finally{
     db.close();
   }
@@ -76,9 +77,8 @@ const tryOpfsVfs = async function(sqlite3){
   log("Done!");
 }/*tryOpfsVfs()*/;
 
-require('./sqlite3-wasmfs.js');
+importScripts('jswasm/sqlite3.js');
 self.sqlite3InitModule()
-.then(({ sqlite3 })=> sqlite3.asyncPostInit())
   .then((sqlite3)=>tryOpfsVfs(sqlite3))
   .catch((e)=>{
     console.error("Error initializing module:",e);

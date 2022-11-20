@@ -58,6 +58,7 @@ const tryNodefsVfs = async function(sqlite3){
                (performance.now() |0) / 4]
       });
     });
+    console.log('lets log')
     log("count(*) from t =",db.selectValue("select count(*) from t"));
 
     // Some sanity checks of the opfs utility functions...
@@ -72,7 +73,7 @@ const tryNodefsVfs = async function(sqlite3){
     await nodefs.unlink(testDir, true) || toss("delete 3 failed");
     await nodefs.entryExists(testDir) && toss("entryExists(",testDir,") should have failed"); */
   }finally{
-    db.close();
+    // db.close();
   }
 
   log("Done!");
