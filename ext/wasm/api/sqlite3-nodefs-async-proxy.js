@@ -131,7 +131,6 @@ const getDirForFilename = async function f(absFilename, createDirs = false){
   const resolvedPath = path.resolve(state.rootDir, absFilename);
   const dirPath = path.dirname(resolvedPath);
   const dirHandle = fs.opendirSync(dirPath,);
-  wLog('getDirForFilename', [dirHandle, resolvedPath]);
   return [dirHandle, resolvedPath];
 };
 
@@ -297,7 +296,6 @@ const vfsAsyncImpls = {
     storeAndNotify('opfs-async-shutdown', 0);
   },
   mkdir: async (dirname)=>{
-    wLog('mkdir')
     mTimeStart('mkdir');
     let rc = 0;
     wTimeStart('mkdir');
@@ -332,7 +330,6 @@ const vfsAsyncImpls = {
       const fd = fs.openSync(fn, O_CREAT);
       fs.closeSync(fd); */
     }catch(e){
-      wLog('xAccess: not accessible:',e);
       state.s11n.storeException(2,e);
       rc = state.sq3Codes.SQLITE_IOERR;
     }finally{
@@ -350,7 +347,6 @@ const vfsAsyncImpls = {
     if(fh){
       delete __openFiles[fid];
 
-      wLog("xClose(): Closing file",fh.filenameAbs);
       // await fh.fileHandle.close();
       fs.closeSync(fh.fileHandle);
       fh.dirHandle.closeSync();
@@ -498,23 +494,31 @@ const vfsAsyncImpls = {
     mTimeStart('xRead');
     let rc = 0, nRead;
     const fh = __openFiles[fid];
+    const sabView = fh.sabView;
     // wLog('xRead',fid,n,offset64, fh.filenameAbs);
     // (await (await (await fs.open())).close())
 
     try{
       affirmLocked('xRead',fh);
       wTimeStart('xRead');
-      nRead = fs.readSync(fh.fileHandle, fh.sabView, offset64);
+
+      const { size } = fs.fstatSync(fh.fileHandle);
+      const tempView = new Uint8Array(n + offset64);
+      // wLog('before here', offset64, n, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
+      nRead = fs.readSync(fh.fileHandle, tempView)
+      sabView.subarray(0, n).set(tempView.subarray(offset64, offset64 + n));
+      // wLog('here', nRead, n, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
+      // nRead = fs.readSync(fh.fileHandle, fh.sabView, offset64);
       /* nRead = (await fh.fileHandle.read(
         fh.sabView.subarray(0, n),
         Number(offset64)
       )).bytesRead; */
-      wLog('xRead',{ nRead,n, offset64, filenameAbs: fh.filenameAbs, sabView: fh.sabView, stat: fs.fstatSync(fh.fileHandle) });
+      // wLog('xRead',{ nRead,n, offset64, filenameAbs: fh.filenameAbs, sabView: fh.sabView, stat: fs.fstatSync(fh.fileHandle) });
       wTimeEnd();
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
         rc = state.sq3Codes.SQLITE_IOERR_SHORT_READ;
-        wLog(rc)
+        // wLog(rc)
       }
     }catch(e){
       if(undefined===nRead) wTimeEnd();
@@ -588,31 +592,22 @@ const vfsAsyncImpls = {
     let rc;
     const fh = __openFiles[fid];
     wTimeStart('xWrite');
-    // console.log('here 2', fh.sabView)
+    wLog('xWrite', n, offset64, [...fh.sabView])
     try{
       affirmLocked('xWrite',fh);
       // affirmNotRO('xWrite', fh);
-      const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView, Number(offset64))
+      const tempView = new Uint8Array(fh.sabView.length);
+      fs.readSync(fh.fileHandle, tempView)
+      tempView.subarray(offset64, offset64 + n).set(fh.sabView.subarray(0, n));
+      const bytesWritten = fs.writeSync(fh.fileHandle, tempView)
 
-      var enc = new TextDecoder("utf-8");
-      // console.log('here', enc.decode(fh.sabView))
+      wLog(bytesWritten, n, offset64, [...fh.sabView], [...tempView])
 
       rc = (
         // n === (await fh.fileHandle.write(fh.sabView.subarray(0, n), Number(offset64))).bytesWritten
         n <= bytesWritten
       ) ? 0 : state.sq3Codes.SQLITE_IOERR_WRITE;
-      // console.log(fs.fstatSync(fh.fileHandle), bytesWritten, rc)
-      wLog('err', {
-        filenameAbs: fh.filenameAbs,
-        rc,
-        n,
-        bytesWritten,
-        offset64,
-        // decode: enc.decode(fh.sabView)
-      })
-      wLog(enc.decode(fh.sabView.subarray(0, n)))
     }catch(e){
-      wLog(e)
       error("xWrite():",e,fh);
       state.s11n.storeException(1,e);
       rc = state.sq3Codes.SQLITE_IOERR_WRITE;
