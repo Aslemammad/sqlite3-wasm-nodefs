@@ -1,0 +1,4 @@
+-- begin test 210 ALTER TABLE ADD COLUMN, and query
+ALTER TABLE z2 ADD COLUMN d INT DEFAULT 123;
+SELECT sum(d) FROM z2;
+-- end test 210
