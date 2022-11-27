@@ -495,25 +495,12 @@ const vfsAsyncImpls = {
     let rc = 0, nRead;
     const fh = __openFiles[fid];
     const sabView = fh.sabView;
-    // wLog('xRead',fid,n,offset64, fh.filenameAbs);
-    // (await (await (await fs.open())).close())
 
     try{
       affirmLocked('xRead',fh);
       wTimeStart('xRead');
 
-      /* const { size } = fs.fstatSync(fh.fileHandle);
-      const tempView = new Uint8Array(n + offset64); */
-      // wLog('before here', offset64, n, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
       nRead = fs.readSync(fh.fileHandle, sabView.subarray(0, n), {position: offset64})
-      // sabView.subarray(0, n).set(tempView.subarray(offset64, offset64 + n));
-      // wLog('here', fh.filenameAbs, nRead, n, offset64, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
-      // nRead = fs.readSync(fh.fileHandle, fh.sabView, offset64);
-      /* nRead = (await fh.fileHandle.read(
-        fh.sabView.subarray(0, n),
-        Number(offset64)
-      )).bytesRead; */
-      // wLog('xRead',{ nRead,n, offset64, filenameAbs: fh.filenameAbs, sabView: fh.sabView, stat: fs.fstatSync(fh.fileHandle) });
       wTimeEnd();
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
@@ -592,7 +579,6 @@ const vfsAsyncImpls = {
     let rc;
     const fh = __openFiles[fid];
     wTimeStart('xWrite');
-    // wLog('xWrite', n, offset64, [...fh.sabView])
     try{
       affirmLocked('xWrite',fh);
       const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView.subarray(0, n), undefined, undefined, offset64)
