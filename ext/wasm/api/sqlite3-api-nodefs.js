@@ -81,7 +81,6 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
   `opfs` property, containing several OPFS-specific utilities.
 */
 const installNodefsVfs = function callee(options){
-  console.log(options)
   if(!options || 'object'!==typeof options){
     options = Object.create(null);
   }
@@ -363,13 +362,10 @@ const installNodefsVfs = function callee(options){
       Atomics.notify(state.sabOPView, state.opIds.whichOp)
       /* async thread will take over here */;
       const t = performance.now();
-      console.trace('opRun wait before', op, args)
       Atomics.wait(state.sabOPView, state.opIds.rc, -1)
-      console.log('opRun wait after', op, args, state.opIds.rc)
       /* When this wait() call returns, the async half will have
          completed the operation and reported its results. */;
       const rc = Atomics.load(state.sabOPView, state.opIds.rc);
-      console.log('rc', rc)
       metrics[op].wait += performance.now() - t;
       if(rc && state.asyncS11nExceptions){
         const err = state.s11n.deserialize();
@@ -719,7 +715,6 @@ const installNodefsVfs = function callee(options){
         mTimeStart('xLock');
         const f = __openFiles[pFile];
         let rc = 0;
-        console.log(capi.SQLITE_LOCK_NONE, f.lockType, lockType);
         if( capi.SQLITE_LOCK_NONE === f.lockType ) {
           rc = opRun('xLock', pFile, lockType);
           if( 0===rc ) f.lockType = lockType;
@@ -1139,14 +1134,11 @@ const installNodefsVfs = function callee(options){
     //TODO to support fiddle and worker1 db upload:
     //opfsUtil.createFile = function(absName, content=undefined){...}
 
-    console.log(sqlite3.oo1)
     if(sqlite3.oo1){
       nodefsUtil.NodefsDb = function(...args){
         const opt = sqlite3.oo1.DB.dbCtorHelper.normalizeArgs(...args);
         opt.vfs = nodefsVfs.$zName;
-        console.log('before nodefsUtil.NodefsDb',opt);
         sqlite3.oo1.DB.dbCtorHelper.call(this, opt);
-        console.log('after nodefsUtil.NodefsDb',opt);
       };
       nodefsUtil.NodefsDb.prototype = Object.create(sqlite3.oo1.DB.prototype);
       sqlite3.oo1.DB.dbCtorHelper.setVfsPostOpenSql(
@@ -1301,7 +1293,6 @@ const installNodefsVfs = function callee(options){
   })/*thePromise*/;
   return thePromise;
 }/*installOpfsVfs()*/;
-console.log(process.cwd())
 installNodefsVfs.defaultProxyUri =
   "./api/sqlite3-nodefs-async-proxy.js";
 self.sqlite3ApiBootstrap.initializersAsync.push(async (sqlite3)=>{

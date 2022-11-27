@@ -502,12 +502,12 @@ const vfsAsyncImpls = {
       affirmLocked('xRead',fh);
       wTimeStart('xRead');
 
-      const { size } = fs.fstatSync(fh.fileHandle);
-      const tempView = new Uint8Array(n + offset64);
+      /* const { size } = fs.fstatSync(fh.fileHandle);
+      const tempView = new Uint8Array(n + offset64); */
       // wLog('before here', offset64, n, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
-      nRead = fs.readSync(fh.fileHandle, tempView)
-      sabView.subarray(0, n).set(tempView.subarray(offset64, offset64 + n));
-      wLog('here', fh.filenameAbs, nRead, n, offset64, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
+      nRead = fs.readSync(fh.fileHandle, sabView.subarray(0, n), {position: offset64})
+      // sabView.subarray(0, n).set(tempView.subarray(offset64, offset64 + n));
+      // wLog('here', fh.filenameAbs, nRead, n, offset64, [...sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
       // nRead = fs.readSync(fh.fileHandle, fh.sabView, offset64);
       /* nRead = (await fh.fileHandle.read(
         fh.sabView.subarray(0, n),
@@ -595,17 +595,9 @@ const vfsAsyncImpls = {
     // wLog('xWrite', n, offset64, [...fh.sabView])
     try{
       affirmLocked('xWrite',fh);
-      // affirmNotRO('xWrite', fh);
-      const tempView = new Uint8Array(fh.sabView.length);
-      fs.readSync(fh.fileHandle, tempView)
-      tempView.subarray(offset64, offset64 + n).set(fh.sabView.subarray(0, n));
-      const bytesWritten = fs.writeSync(fh.fileHandle, tempView)
-
-      wLog('write',fh.filenameAbs, n, offset64, [...fh.sabView.subarray(0, n)], [...tempView.subarray(offset64, offset64 + n)])
-
+      const bytesWritten = fs.writeSync(fh.fileHandle, fh.sabView.subarray(0, n), undefined, undefined, offset64)
       rc = (
-        // n === (await fh.fileHandle.write(fh.sabView.subarray(0, n), Number(offset64))).bytesWritten
-        n <= bytesWritten
+        n === bytesWritten
       ) ? 0 : state.sq3Codes.SQLITE_IOERR_WRITE;
     }catch(e){
       error("xWrite():",e,fh);
