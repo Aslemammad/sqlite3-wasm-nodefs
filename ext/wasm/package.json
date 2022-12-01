@@ -1,5 +1,5 @@
 {
-  "name": "sqlite3-wasm",
+  "name": "sqlite3-wasm-nodefs",
   "version": "0.0.0",
   "description": "",
   "main": "sqlite3-wasmfs.js",
