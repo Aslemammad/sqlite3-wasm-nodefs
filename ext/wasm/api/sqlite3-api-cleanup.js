@@ -27,7 +27,7 @@ if('undefined' !== typeof Module){ // presumably an Emscripten build
       exports: Module['asm'],
       memory: Module.wasmMemory /* gets set if built with -sIMPORT_MEMORY */
     },
-    self.sqlite3ApiConfig || Object.create(null)
+    globalThis.sqlite3ApiConfig || Object.create(null)
   );
 
   /**
@@ -41,22 +41,22 @@ if('undefined' !== typeof Module){ // presumably an Emscripten build
      able to provide the necessary configuration state.
   */
   //console.warn("self.sqlite3ApiConfig = ",self.sqlite3ApiConfig);
-  self.sqlite3ApiConfig = SABC;
+  globalThis.sqlite3ApiConfig = SABC;
   let sqlite3;
   try{
-    sqlite3 = self.sqlite3ApiBootstrap();
+    sqlite3 = globalThis.sqlite3ApiBootstrap();
   }catch(e){
     console.error("sqlite3ApiBootstrap() error:",e);
     throw e;
   }finally{
-    delete self.sqlite3ApiBootstrap;
-    delete self.sqlite3ApiConfig;
+    delete globalThis.sqlite3ApiBootstrap;
+    delete globalThis.sqlite3ApiConfig;
   }
 
-  if(self.location && +self.location.port > 1024){
+  /* if(self.location && +self.location.port > 1024){
     console.warn("Installing sqlite3 bits as global S for local dev/test purposes.");
     self.S = sqlite3;
-  }
+  } */
 
   /* Clean up temporary references to our APIs... */
   delete sqlite3.util /* arguable, but these are (currently) internal-use APIs */;

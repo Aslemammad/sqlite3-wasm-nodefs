@@ -16,7 +16,7 @@
 
 */
 'use strict';
-self.Jaccwabyt = function StructBinderFactory(config){
+globalThis.Jaccwabyt = function StructBinderFactory(config){
 /* ^^^^ it is recommended that clients move that object into wherever
    they'd like to have it and delete the self-held copy ("self" being
    the global window or worker object).  This API does not require the
@@ -57,9 +57,9 @@ self.Jaccwabyt = function StructBinderFactory(config){
         memberPrefix = (config.memberPrefix || ""),
         memberSuffix = (config.memberSuffix || ""),
         bigIntEnabled = (undefined===config.bigIntEnabled
-                         ? !!self['BigInt64Array'] : !!config.bigIntEnabled),
-        BigInt = self['BigInt'],
-        BigInt64Array = self['BigInt64Array'],
+                         ? !!globalThis['BigInt64Array'] : !!config.bigIntEnabled),
+        BigInt = globalThis['BigInt'],
+        BigInt64Array = globalThis['BigInt64Array'],
         /* Undocumented (on purpose) config options: */
         functionTable = config.functionTable/*EXPERIMENTAL, undocumented*/,
         ptrSizeof = config.ptrSizeof || 4,

@@ -1,5 +1,4 @@
-globalThis.self = globalThis.self || globalThis;
-self.sqlite3InitModule = sqlite3InitModule;
+globalThis.sqlite3InitModule = sqlite3InitModule;
 
 /* extern-post-js.js must be appended to the resulting sqlite3.js
    file. It gets its name from being used as the value for the
@@ -18,7 +17,7 @@ self.sqlite3InitModule = sqlite3InitModule;
      impls which Emscripten installs at some point in the file above
      this.
   */
-  const originalInit = self.sqlite3InitModule;
+  const originalInit = globalThis.sqlite3InitModule;
   if(!originalInit){
     throw new Error("Expecting self.sqlite3InitModule to be defined by the Emscripten build.");
   }
@@ -33,10 +32,10 @@ self.sqlite3InitModule = sqlite3InitModule;
      into the global scope and delete it when sqlite3InitModule()
      is called.
   */
-  const initModuleState = self.sqlite3InitModuleState = Object.assign(Object.create(null),{
+  const initModuleState = globalThis.sqlite3InitModuleState = Object.assign(Object.create(null),{
     // moduleScript: self?.document?.currentScript,
     isWorker: ('undefined' !== typeof WorkerGlobalScope),
-    location: self.location,
+    location: globalThis.location,
     // urlParams: new URL(self.location.href).searchParams
   });
   // initModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
@@ -50,10 +49,10 @@ self.sqlite3InitModule = sqlite3InitModule;
     initModuleState.sqlite3Dir = li.join('/') + '/';
   } */
 
-  self.sqlite3InitModule = (...args)=>{
+  globalThis.sqlite3InitModule = (...args)=>{
     //console.warn("Using replaced sqlite3InitModule()",self.location);
     return originalInit(...args).then((EmscriptenModule)=>{
-      if(self.window!==self &&
+      if(globalThis.window!==globalThis &&
          (EmscriptenModule['ENVIRONMENT_IS_PTHREAD']
           || EmscriptenModule['_pthread_self']
           || 'function'===typeof threadAlert
@@ -76,7 +75,7 @@ self.sqlite3InitModule = sqlite3InitModule;
       throw e;
     });
   };
-  self.sqlite3InitModule.ready = originalInit.ready;
+  globalThis.sqlite3InitModule.ready = originalInit.ready;
 
   /* if(self.sqlite3InitModuleState.moduleScript){
     const sim = self.sqlite3InitModuleState;
@@ -99,7 +98,7 @@ self.sqlite3InitModule = sqlite3InitModule;
     module.exports = sqlite3InitModule;
   else if (typeof exports === 'object')
     exports["sqlite3InitModule"] = sqlite3InitModule;
-  self.sqlite3InitModule = sqlite3InitModule;
+  globalThis.sqlite3InitModule = sqlite3InitModule;
   /* AMD modules get injected in a way we cannot override,
      so we can't handle those here. */
 })();

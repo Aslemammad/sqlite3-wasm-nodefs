@@ -80,12 +80,9 @@ const tryNodefsVfs = async function(sqlite3){
 }/*tryOpfsVfs()*/;
 
 require('./sqlite3-wasmfs.js');
-self.sqlite3InitModule()
+globalThis.sqlite3InitModule()
 .then(({ sqlite3 })=> sqlite3.asyncPostInit())
   .then((sqlite3)=>tryNodefsVfs(sqlite3))
   .catch((e)=>{
     console.error("Error initializing module:",e);
   });
-
-
-

@@ -23,7 +23,7 @@
 const { Worker } = require('worker_threads');
 const fs = require('fs')
 const path = require('path')
-self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
+globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
 /**
    installOpfsVfs() returns a Promise which, on success, installs an
    sqlite3_vfs named "opfs", suitable for use with all sqlite3 APIs
@@ -149,8 +149,8 @@ const installNodefsVfs = function callee(options){
           m.avgTime = (m.count && m.time) ? (m.time / m.count) : 0;
           m.avgWait = (m.count && m.wait) ? (m.wait / m.count) : 0;
         }
-        console.log(self.location.href,
-                    "metrics for",self.location.href,":",metrics,
+        console.log(globalThis.location.href,
+                    "metrics for",globalThis.location.href,":",metrics,
                     "\nTotal of",n,"op(s) for",t,
                     "ms (incl. "+w+" ms of waiting on the async side)");
         console.log("Serialization metrics:",metrics.s11n);
@@ -1295,7 +1295,7 @@ const installNodefsVfs = function callee(options){
 }/*installOpfsVfs()*/;
 installNodefsVfs.defaultProxyUri =
   "./api/sqlite3-nodefs-async-proxy.js";
-self.sqlite3ApiBootstrap.initializersAsync.push(async (sqlite3)=>{
+globalThis.sqlite3ApiBootstrap.initializersAsync.push(async (sqlite3)=>{
   try{
     return installNodefsVfs().catch((e)=>{
       console.warn("Ignoring inability to install OPFS sqlite3_vfs:",e);

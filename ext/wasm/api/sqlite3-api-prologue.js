@@ -128,8 +128,8 @@
 
 */
 'use strict';
-self.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
-  apiConfig = (self.sqlite3ApiConfig || sqlite3ApiBootstrap.defaultConfig)
+globalThis.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
+  apiConfig = (globalThis.sqlite3ApiConfig || sqlite3ApiBootstrap.defaultConfig)
 ){
   if(sqlite3ApiBootstrap.sqlite3){ /* already initalized */
     console.warn("sqlite3ApiBootstrap() called multiple times.",
@@ -145,7 +145,7 @@ self.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
            -sWASM_BIGINT=1, else it will not. */
         return !!Module.HEAPU64;
       }
-      return !!self.BigInt64Array;
+      return !!globalThis.BigInt64Array;
     })(),
     allocExportName: 'malloc',
     deallocExportName: 'free',
@@ -1173,9 +1173,9 @@ self.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
     // If we have no OPFS, there is no persistent dir
     const pdir = config.wasmfsOpfsDir;
     if(!pdir
-       || !self.FileSystemHandle
-       || !self.FileSystemDirectoryHandle
-       || !self.FileSystemFileHandle){
+       || !globalThis.FileSystemHandle
+       || !globalThis.FileSystemDirectoryHandle
+       || !globalThis.FileSystemFileHandle){
       return __wasmfsOpfsDir = "";
     }
     try{
@@ -1339,8 +1339,8 @@ self.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
       const rc = Object.create(null);
       rc.prefix = 'kvvfs-'+which;
       rc.stores = [];
-      if('session'===which || ''===which) rc.stores.push(self.sessionStorage);
-      if('local'===which || ''===which) rc.stores.push(self.localStorage);
+      if('session'===which || ''===which) rc.stores.push(globalThis.sessionStorage);
+      if('local'===which || ''===which) rc.stores.push(globalThis.localStorage);
       return rc;
     };
 
@@ -1519,7 +1519,7 @@ self.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
   utilized until the whwasmutil.js part is plugged in via
   sqlite3-api-glue.js.
 */
-self.sqlite3ApiBootstrap.initializers = [];
+globalThis.sqlite3ApiBootstrap.initializers = [];
 /**
   self.sqlite3ApiBootstrap.initializersAsync is an internal detail
   used by the sqlite3 API's amalgamation process. It must not be
@@ -1541,7 +1541,7 @@ self.sqlite3ApiBootstrap.initializers = [];
   added to self.sqlite3ApiBootstrap.initializers may push entries to
   this list.
 */
-self.sqlite3ApiBootstrap.initializersAsync = [];
+globalThis.sqlite3ApiBootstrap.initializersAsync = [];
 /**
    Client code may assign sqlite3ApiBootstrap.defaultConfig an
    object-type value before calling sqlite3ApiBootstrap() (without
@@ -1551,7 +1551,7 @@ self.sqlite3ApiBootstrap.initializersAsync = [];
    an environment-suitable configuration without having to define a new
    global-scope symbol.
 */
-self.sqlite3ApiBootstrap.defaultConfig = Object.create(null);
+globalThis.sqlite3ApiBootstrap.defaultConfig = Object.create(null);
 /**
    Placeholder: gets installed by the first call to
    self.sqlite3ApiBootstrap(). However, it is recommended that the
@@ -1559,5 +1559,5 @@ self.sqlite3ApiBootstrap.defaultConfig = Object.create(null);
    self.sqlite3ApiBootstrap after calling it. It returns the same
    value which will be stored here.
 */
-self.sqlite3ApiBootstrap.sqlite3 = undefined;
+globalThis.sqlite3ApiBootstrap.sqlite3 = undefined;
 

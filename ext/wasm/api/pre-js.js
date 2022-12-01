@@ -6,11 +6,10 @@
 */
 
 // See notes in extern-post-js.js
-const sqlite3InitModuleState = self.sqlite3InitModuleState || Object.create(null);
-delete self.sqlite3InitModuleState;
+const sqlite3InitModuleState = globalThis.sqlite3InitModuleState || Object.create(null);
+delete globalThis.sqlite3InitModuleState;
 // sqlite3InitModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
 sqlite3InitModuleState.debugModule = (...args)=> {}
-sqlite3InitModuleState.debugModule('self.location =',self.location);
 
 /**
    This custom locateFile() tries to figure out where to load `path`

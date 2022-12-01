@@ -16,18 +16,18 @@
   initializes the main API pieces so that the downstream components
   (e.g. sqlite3-api-oo1.js) have all that they need.
 */
-self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
+globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
   'use strict';
   const toss = (...args)=>{throw new Error(args.join(' '))};
   const toss3 = sqlite3.SQLite3Error.toss;
   const capi = sqlite3.capi, wasm = sqlite3.wasm, util = sqlite3.util;
-  self.WhWasmUtilInstaller(wasm);
-  delete self.WhWasmUtilInstaller;
+  globalThis.WhWasmUtilInstaller(wasm);
+  delete globalThis.WhWasmUtilInstaller;
 
   /**
      Install JS<->C struct bindings for the non-opaque struct types we
      need... */
-  sqlite3.StructBinder = self.Jaccwabyt({
+  sqlite3.StructBinder = globalThis.Jaccwabyt({
     heap: 0 ? wasm.memory : wasm.heap8u,
     alloc: wasm.alloc,
     dealloc: wasm.dealloc,
@@ -35,7 +35,7 @@ self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
     bigIntEnabled: wasm.bigIntEnabled,
     memberPrefix: '$'
   });
-  delete self.Jaccwabyt;
+  delete globalThis.Jaccwabyt;
 
   if(0){
     /*  "The problem" is that the following isn't even remotely

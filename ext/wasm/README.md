@@ -103,3 +103,8 @@ using SSH.
 
 [emscripten]: https://emscripten.org
 [althttpd]: https://sqlite.org/althttpd
+
+# Nodefs (Node.js file system)
+
+The package is published as `sqlite3-wasm` in npm, check `./test-wasmfs.js` for
+learning the use cases.
