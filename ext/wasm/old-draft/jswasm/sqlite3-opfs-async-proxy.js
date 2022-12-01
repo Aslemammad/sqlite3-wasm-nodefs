@@ -492,9 +492,6 @@ const vfsAsyncImpls = {
         {at: Number(offset64)}
       );
       console.log('here', nRead, n, offset64, [...fh.sabView.subarray(0, n)]);
-      const dec = new TextDecoder();
-      /* console.log('decode', fh.filenameAbs);
-      console.log(dec.decode(new Uint8Array([...fh.sabView]))) */
       wTimeEnd();
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
@@ -571,6 +568,8 @@ const vfsAsyncImpls = {
       affirmLocked('xWrite',fh);
       affirmNotRO('xWrite', fh);
       console.log('write', fh.filenameAbs, n, offset64, [...fh.sabView.subarray(0, n)])
+      const dec = new TextDecoder();
+      console.log(fh.filenameAbs, n, offset64, dec.decode(new Uint8Array(fh.sabView)))
       rc = (
         n === (await getSyncHandle(fh))
           .write(fh.sabView.subarray(0, n),
