@@ -1,0 +1,17 @@
+{
+  "name": "sqlite3-wasm",
+  "version": "0.0.0",
+  "description": "",
+  "main": "sqlite3-wasmfs.js",
+  "scripts": {
+    "build": "make",
+    "test": "node --experimental-worker --experimental-wasm-threads --trace-warnings ./test-wasmfs.js"
+  },
+  "files": [
+    "sqlite3-wasmfs.js",
+    "sqlite3-wasmfs.wasm"
+  ],
+  "keywords": [],
+  "author": "Mohammad Bagher Abiat <zorofight94@gmail.com>",
+  "license": "MIT"
+}
