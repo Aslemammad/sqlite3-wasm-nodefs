@@ -247,7 +247,7 @@ $(sqlite3-api.js): $(sqlite3-api.jses) $(MAKEFILE)
 $(sqlite3-api-build-version.js): $(bin.version-info) $(MAKEFILE)
 	@echo "Making $@..."
 	@{ \
-  echo 'self.sqlite3ApiBootstrap.initializers.push(function(sqlite3){'; \
+  echo 'globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){'; \
 	echo -n '  sqlite3.version = '; \
   $(bin.version-info) --json; \
   echo ';'; \

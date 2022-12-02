@@ -1,6 +1,6 @@
 {
   "name": "sqlite3-wasm-nodefs",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "sqlite3-wasmfs.js",
   "scripts": {
@@ -9,7 +9,9 @@
   },
   "files": [
     "sqlite3-wasmfs.js",
-    "sqlite3-wasmfs.wasm"
+    "sqlite3-wasmfs.wasm",
+    "sqlite3-wasmfs.worker.js",
+    "api/sqlite3-nodefs-async-proxy.js"
   ],
   "keywords": [],
   "author": "Mohammad Bagher Abiat <zorofight94@gmail.com>",

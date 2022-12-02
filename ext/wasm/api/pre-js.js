@@ -11,6 +11,8 @@ delete globalThis.sqlite3InitModuleState;
 // sqlite3InitModuleState.debugModule = (...args)=>console.warn('sqlite3.debugModule:',...args)
 sqlite3InitModuleState.debugModule = (...args)=> {}
 
+const {dirname, resolve} = require('path');
+
 /**
    This custom locateFile() tries to figure out where to load `path`
    from. The intent is to provide a way for foo/bar/X.js loaded from a
@@ -30,6 +32,8 @@ sqlite3InitModuleState.debugModule = (...args)=> {}
    4) If none of the above apply, (prefix+path) is returned.
 */
 Module['locateFile'] = function(path, prefix) {
+  console.log(path, prefix)
+  const currentDir = dirname(require.resolve('.'));
   let theFile;
   /* const up = this.urlParams;
   if(up.has(path)){
@@ -41,7 +45,7 @@ Module['locateFile'] = function(path, prefix) {
   }else{
     theFile = prefix + path;
   } */
-  theFile = prefix + path;
+  theFile = resolve(currentDir, path);
   sqlite3InitModuleState.debugModule(
     "locateFile(",arguments[0], ',', arguments[1],")",
     'sqlite3InitModuleState.scriptDir =',this.scriptDir,
