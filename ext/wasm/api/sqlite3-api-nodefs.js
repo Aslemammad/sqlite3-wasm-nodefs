@@ -104,11 +104,11 @@ const installNodefsVfs = function callee(options){
   W.onerror = function(err){
     /* The error object doesn't contain any useful info when the
     failure is, e.g., that the remote script is 404. */
-    error("Error initializing Nodefs asyncer:",err);
+    // error("Error initializing Nodefs asyncer:",err);
     promiseReject(new Error("Loading Nodefs async Worker failed for unknown reasons."));
   };
   W.on('exit', (e) => {
-    console.log('Worker exited with code', e);
+    // console.log('Worker exited with code', e);
   })
 
   const thePromise = new Promise(function(promiseResolve, promiseReject_){
@@ -338,9 +338,10 @@ const installNodefsVfs = function callee(options){
       'SQLITE_LOCK_SHARED',
       'SQLITE_MISUSE',
       'SQLITE_NOTFOUND',
+      'SQLITE_CANTOPEN',
       'SQLITE_OPEN_CREATE',
       'SQLITE_OPEN_DELETEONCLOSE',
-      'SQLITE_OPEN_READONLY'
+      'SQLITE_OPEN_READONLY',
     ].forEach((k)=>{
       if(undefined === (state.sq3Codes[k] = capi[k])){
         toss("Maintenance required: not found:",k);
@@ -817,6 +818,7 @@ const installNodefsVfs = function callee(options){
         return 0;
       },
       xFullPathname: function(pVfs,zName,nOut,pOut){
+
         /* Until/unless we have some notion of "current dir"
            in OPFS, simply copy zName to pOut... */
         const i = wasm.cstrncpy(pOut, zName, nOut);
@@ -838,6 +840,17 @@ const installNodefsVfs = function callee(options){
         }else if('number'===typeof zName){
           zName = wasm.cstringToJs(zName);
         }
+        /* try {
+          const filename = zName
+          if (fs.existsSync(filename)) {
+            fs.accessSync(filename)
+          } else {
+            const dirname = path.dirname(filename)
+            fs.mkdirSync(dirname, {recursive: true})
+          }
+        } catch (e) {
+          return capi.SQLITE_CANTOPEN
+        } */
         const fh = Object.create(null);
         fh.fid = pFile;
         fh.filename = zName;
@@ -1138,9 +1151,16 @@ const installNodefsVfs = function callee(options){
       nodefsUtil.NodefsDb = function(...args){
         const opt = sqlite3.oo1.DB.dbCtorHelper.normalizeArgs(...args);
         opt.vfs = nodefsVfs.$zName;
+
         sqlite3.oo1.DB.dbCtorHelper.call(this, opt);
       };
       nodefsUtil.NodefsDb.prototype = Object.create(sqlite3.oo1.DB.prototype);
+
+      nodefsUtil.NodefsDb.prototype.close = function(){
+          sqlite3.oo1.DB.prototype.close.call(this);
+          W.terminate()
+      }
+
       sqlite3.oo1.DB.dbCtorHelper.setVfsPostOpenSql(
         nodefsVfs.pointer,
         [
@@ -1271,12 +1291,8 @@ const installNodefsVfs = function callee(options){
               delete W._originalOnError;
               sqlite3.nodefs = nodefsUtil;
               nodefsUtil.rootDirectory = process.cwd();
-              console.log("End of OPFS sqlite3_vfs setup.", nodefsVfs);
-              /* queueMicrotask(() => {
-                console.log('stop')
-                promiseResolve(sqlite3);
-              }) */
-              return Promise.resolve().then(promiseResolve);
+              // console.log("End of OPFS sqlite3_vfs setup.", nodefsVfs);
+              return Promise.resolve().then(promiseResolve)
             }catch(e){
               error(e);
               promiseReject(e);
@@ -1294,7 +1310,7 @@ const installNodefsVfs = function callee(options){
   return thePromise;
 }/*installOpfsVfs()*/;
 installNodefsVfs.defaultProxyUri =
-  "./api/sqlite3-nodefs-async-proxy.js";
+  path.resolve(path.dirname(require.resolve(".")), "./api/sqlite3-nodefs-async-proxy.js");
 globalThis.sqlite3ApiBootstrap.initializersAsync.push(async (sqlite3)=>{
   try{
     return installNodefsVfs().catch((e)=>{

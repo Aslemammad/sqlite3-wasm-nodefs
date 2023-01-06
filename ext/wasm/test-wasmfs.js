@@ -21,12 +21,10 @@ const tryNodefsVfs = async function(sqlite3){
   const error =  (...args)=>console.error(logPrefix,...args);
   log("tryOpfsVfs()");
   const nodefs = sqlite3.nodefs;
-  console.log(nodefs)
   nodefs.registerVfs()
 
   const capi = sqlite3.capi;
   const pVfs = capi.sqlite3_vfs_find("nodefs")
-  console.log('pVfs here', pVfs);
   const oVfs = capi.sqlite3_vfs.instanceForPointer(pVfs) || toss("Unexpected instanceForPointer() result.");;
   // log("OPFS VFS:",pVfs, oVfs);
 
@@ -38,9 +36,7 @@ const tryNodefsVfs = async function(sqlite3){
   const dbFile = "my-persistent.db";
   // if(urlArgs.has('delete')) sqlite3.opfs.unlink(dbFile);
 
-  console.log('before NodefsDb 1')
-  const db = new nodefs.NodefsDb(dbFile,'ct');
-  console.log('here', db)
+  const db = new nodefs.NodefsDb(dbFile, capi.SQLITE_OPEN_CREATE | capi.SQLITE_OPEN_READWRITE);
   log("db file:",db.filename);
   try{
     if(nodefs.entryExists(dbFile)){
@@ -58,7 +54,6 @@ const tryNodefsVfs = async function(sqlite3){
                (performance.now() |0) / 4]
       });
     });
-    console.log('lets log')
     log("count(*) from t =",db.selectValue("select count(*) from t"));
 
     // Some sanity checks of the opfs utility functions...
@@ -73,16 +68,22 @@ const tryNodefsVfs = async function(sqlite3){
     await nodefs.unlink(testDir, true) || toss("delete 3 failed");
     await nodefs.entryExists(testDir) && toss("entryExists(",testDir,") should have failed"); */
   }finally{
-    // db.close();
+    db.close();
   }
-
-  log("Done!");
 }/*tryOpfsVfs()*/;
 
+let closeModule;
 require('./sqlite3-wasmfs.js');
 globalThis.sqlite3InitModule()
-.then(({ sqlite3 })=> sqlite3.asyncPostInit())
+.then(({ sqlite3, PThread }) => { 
+    closeModule = PThread.terminateAllThreads
+    return sqlite3.asyncPostInit()
+  })
   .then((sqlite3)=>tryNodefsVfs(sqlite3))
+  .then(()=>console.log("Done!"))
   .catch((e)=>{
     console.error("Error initializing module:",e);
-  });
+  })
+  .finally(()=>{
+    closeModule();
+  })

@@ -33,7 +33,8 @@
 "use strict";
 const { parentPort } = require('worker_threads');
 const fs = require('fs')
-const path = require('path')
+const path = require('path');
+const { promisify } = require('util');
 
 const { O_CREAT, O_RDWR} = fs.constants;
 
@@ -130,7 +131,7 @@ const getResolvedPath = function(filename,splitIt){
 const getDirForFilename = async function f(absFilename, createDirs = false){
   const resolvedPath = path.resolve(state.rootDir, absFilename);
   const dirPath = path.dirname(resolvedPath);
-  const dirHandle = fs.opendirSync(dirPath,);
+  const dirHandle = await fs.promises.opendir(dirPath);
   return [dirHandle, resolvedPath];
 };
 
@@ -347,14 +348,18 @@ const vfsAsyncImpls = {
     if(fh){
       delete __openFiles[fid];
 
+      const fsClose = promisify(fs.close);
+
+      await fsClose(fh.fileHandle)
       // await fh.fileHandle.close();
-      fs.closeSync(fh.fileHandle);
+      // fs.closeSync(fh.fileHandle);
       fh.dirHandle.closeSync();
       // await closeSyncHandle(fh);
       if(fh.deleteOnClose){
         // try{ await fh.dirHandle.removeEntry(fh.filenamePart) }
         try{
-          fs.unlinkSync(fh.filenameAbs)
+          // fs.unlinkSync(fh.filenameAbs)
+          await fs.promises.unlink(fh.filenameAbs)
         }
         catch(e){ warn("Ignoring dirHandle.removeEntry() failure of",fh,e) }
       }
@@ -389,7 +394,8 @@ const vfsAsyncImpls = {
     wTimeStart('xDelete');
     try {
       const [, resolvedPath] = await getDirForFilename(filename, false);
-      fs.rmSync(resolvedPath);
+      // fs.rmSync(resolvedPath);
+      await fs.promises.rm(resolvedPath);
     }catch(e){
       state.s11n.storeException(2,e);
       rc = state.sq3Codes.SQLITE_IOERR_DELETE;
@@ -448,16 +454,18 @@ const vfsAsyncImpls = {
     const create = (state.sq3Codes.SQLITE_OPEN_CREATE & flags);
     wTimeStart('xOpen');
     try{
-      let dirHandle, resolvedFilename;
-      try {
-        [dirHandle, resolvedFilename] = await getDirForFilename(filename, !!create);
-      }catch(e){
-        state.s11n.storeException(1,e);
-        storeAndNotify(opName, state.sq3Codes.SQLITE_NOTFOUND);
-        mTimeEnd();
-        wTimeEnd();
-        return;
+      /* if (fs.existsSync(filename)) {
+        fs.accessSync(filename) */
+      if (fs.existsSync(filename)) {
+        await fs.promises.access(filename)
+      } else {
+        const dirname = path.dirname(filename)
+        // fs.mkdirSync(dirname, {recursive: true})
+        await fs.promises.mkdir(dirname, {recursive: true})
       }
+
+      let dirHandle, resolvedFilename;
+      [dirHandle, resolvedFilename] = await getDirForFilename(filename, !!create);
       let openFlags = O_RDWR
       if (create) {
         openFlags |= O_CREAT;
@@ -484,9 +492,9 @@ const vfsAsyncImpls = {
       storeAndNotify(opName, 0);
     }catch(e){
       wTimeEnd();
-      error(opName,e);
+      // error(opName,e);
       state.s11n.storeException(1,e);
-      storeAndNotify(opName, state.sq3Codes.SQLITE_IOERR);
+      storeAndNotify(opName, state.sq3Codes.SQLITE_CANTOPEN);
     }
     mTimeEnd();
   },
@@ -505,7 +513,6 @@ const vfsAsyncImpls = {
       if(nRead < n){/* Zero-fill remaining bytes */
         fh.sabView.fill(0, nRead, n);
         rc = state.sq3Codes.SQLITE_IOERR_SHORT_READ;
-        // wLog(rc)
       }
     }catch(e){
       if(undefined===nRead) wTimeEnd();

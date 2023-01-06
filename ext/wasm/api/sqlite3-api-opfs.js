@@ -816,6 +816,7 @@ const installOpfsVfs = function callee(options){
         return 0;
       },
       xFullPathname: function(pVfs,zName,nOut,pOut){
+          console.log('xFullPathname', arguments)
         /* Until/unless we have some notion of "current dir"
            in OPFS, simply copy zName to pOut... */
         const i = wasm.cstrncpy(pOut, zName, nOut);

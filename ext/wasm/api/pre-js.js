@@ -32,7 +32,6 @@ const {dirname, resolve} = require('path');
    4) If none of the above apply, (prefix+path) is returned.
 */
 Module['locateFile'] = function(path, prefix) {
-  console.log(path, prefix)
   const currentDir = dirname(require.resolve('.'));
   let theFile;
   /* const up = this.urlParams;

@@ -58,7 +58,8 @@ globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
         "sqlite result code",sqliteResultCode+":",
         (dbPtr
          ? capi.sqlite3_errmsg(dbPtr)
-         : capi.sqlite3_errstr(sqliteResultCode))
+         : capi.sqlite3_errstr(sqliteResultCode)),
+        sqliteResultCode
       );
     }
   };
@@ -102,7 +103,6 @@ globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
      It also accepts those as the first 3 arguments.
   */
   const dbCtorHelper = function ctor(...args){
-    console.log('dbCtorHelper', ...args);
     if(!ctor._name2vfs){
       /**
          Map special filenames which we handle here (instead of in C)
@@ -130,38 +130,41 @@ globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
       };
     }
     const opt = ctor.normalizeArgs(...args);
-    let fn = opt.filename, vfsName = opt.vfs, flagsStr = opt.flags;
+    let fn = opt.filename, vfsName = opt.vfs, flags = opt.flags;
     if(('string'!==typeof fn && 'number'!==typeof fn)
-       || 'string'!==typeof flagsStr
+       // || ('string'!==typeof flags )
        || (vfsName && ('string'!==typeof vfsName && 'number'!==typeof vfsName))){
       console.error("Invalid DB ctor args",opt,arguments);
       toss3("Invalid arguments for DB constructor.");
     }
     let fnJs = ('number'===typeof fn) ? wasm.cstringToJs(fn) : fn;
     const vfsCheck = ctor._name2vfs[fnJs];
-    console.log('vfsCheck', vfsCheck,fnJs);
     if(vfsCheck){
       vfsName = vfsCheck.vfs;
       fn = fnJs = vfsCheck.filename(fnJs);
     }
     let pDb, oflags = 0;
-    if( flagsStr.indexOf('c')>=0 ){
-      console.log('create access')
-      oflags |= capi.SQLITE_OPEN_CREATE | capi.SQLITE_OPEN_READWRITE;
+    if (typeof flags === 'string') { // skip string flags
+      if(flags.indexOf('c')>=0 ){
+        oflags |= capi.SQLITE_OPEN_CREATE | capi.SQLITE_OPEN_READWRITE;
+      }
+      if( flags.indexOf('w')>=0 ) oflags |= capi.SQLITE_OPEN_READWRITE;
+      if( 0===oflags ) oflags |= capi.SQLITE_OPEN_READONLY;
+      oflags |= capi.SQLITE_OPEN_EXRESCODE;
+    } else if (typeof flags === 'number') {
+      oflags = flags;
     }
-    if( flagsStr.indexOf('w')>=0 ) oflags |= capi.SQLITE_OPEN_READWRITE;
-    if( 0===oflags ) oflags |= capi.SQLITE_OPEN_READONLY;
-    oflags |= capi.SQLITE_OPEN_EXRESCODE;
+
     const stack = wasm.pstack.pointer;
     try {
       const pPtr = wasm.pstack.allocPtr() /* output (sqlite3**) arg */;
       let rc = capi.sqlite3_open_v2(fn, pPtr, oflags, vfsName || 0);
       pDb = wasm.getPtrValue(pPtr);
       checkSqlite3Rc(pDb, rc);
-      if(flagsStr.indexOf('t')>=0){
+      /* if(flags.indexOf('t')>=0){
         capi.sqlite3_trace_v2(pDb, capi.SQLITE_TRACE_STMT,
                               __dbTraceToConsole, 0);
-      }
+      } */
       // Check for per-VFS post-open SQL...
       const pVfs = capi.sqlite3_js_db_vfs(pDb);
       //console.warn("Opened db",fn,"with vfs",vfsName,pVfs);

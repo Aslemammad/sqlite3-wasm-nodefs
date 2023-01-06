@@ -228,11 +228,18 @@ globalThis.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
     constructor(...args){
       if(1===args.length && __isInt(args[0])){
         super(__rcStr(args[0]));
+        this.errno = args[0]
       }else if(2===args.length && 'object'===typeof args){
-        if(__isInt(args[0])) super(__rcStr(args[0]), args[1]);
+        if(__isInt(args[0])) {
+          super(__rcStr(args[0]), args[1])
+          this.errno = args[0]
+        }
         else super(...args);
       }else{
         super(args.join(' '));
+      }
+      if (__isInt(args[args.length - 1])) {
+        this.errno = args[args.length - 1]
       }
       this.name = 'SQLite3Error';
     }
