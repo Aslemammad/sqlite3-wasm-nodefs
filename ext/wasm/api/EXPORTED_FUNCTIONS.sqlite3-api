@@ -90,5 +90,6 @@ _sqlite3_value_type
 _sqlite3_vfs_find
 _sqlite3_vfs_register
 _sqlite3_vfs_unregister
+_sqlite3_last_insert_rowid
 _malloc
 _free

@@ -55,7 +55,8 @@ globalThis.sqlite3ApiBootstrap.initializers.push(function(sqlite3){
     if(sqliteResultCode){
       if(dbPtr instanceof DB) dbPtr = dbPtr.pointer;
       toss3(
-        "sqlite result code",sqliteResultCode+":",
+        // "sqlite result code",sqliteResultCode+":",
+        "SQLITE_ERROR:",
         (dbPtr
          ? capi.sqlite3_errmsg(dbPtr)
          : capi.sqlite3_errstr(sqliteResultCode)),

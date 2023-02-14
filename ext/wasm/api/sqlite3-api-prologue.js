@@ -228,20 +228,28 @@ globalThis.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
     constructor(...args){
       if(1===args.length && __isInt(args[0])){
         super(__rcStr(args[0]));
+        console.log('here',args, __rcStr(args[0]));
         this.errno = args[0]
-      }else if(2===args.length && 'object'===typeof args){
+      }else if('object'===typeof args){
+
+
         if(__isInt(args[0])) {
           super(__rcStr(args[0]), args[1])
+          console.log('here',args, __rcStr(args[0]));
           this.errno = args[0]
         }
-        else super(...args);
+        else {
+
+            super(__isInt(args[args.length - 1]) ? args.slice(0, args.length - 1).join(' ') : args.join(' ') )
+            if (__isInt(args[args.length - 1])) {
+              this.errno = args[args.length - 1]
+            }
+        };
       }else{
         super(args.join(' '));
       }
-      if (__isInt(args[args.length - 1])) {
-        this.errno = args[args.length - 1]
-      }
       this.name = 'SQLite3Error';
+      this.code = 'SQLITE_ERROR';
     }
   };
 
@@ -967,6 +975,7 @@ globalThis.sqlite3ApiBootstrap = function sqlite3ApiBootstrap(
   wasm.bindingSignatures.int64 = [
     ["sqlite3_bind_int64","int", ["sqlite3_stmt*", "int", "i64"]],
     ["sqlite3_changes64","i64", ["sqlite3*"]],
+    ["sqlite3_last_insert_rowid", "i64", ["sqlite3*"]],
     ["sqlite3_column_int64","i64", ["sqlite3_stmt*", "int"]],
     ["sqlite3_malloc64", "*","i64"],
     ["sqlite3_msize", "i64", "*"],
