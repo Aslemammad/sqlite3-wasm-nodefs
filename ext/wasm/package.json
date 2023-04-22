@@ -1,6 +1,6 @@
 {
   "name": "sqlite3-wasm-nodefs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "sqlite3-wasmfs.js",
   "scripts": {
